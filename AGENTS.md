@@ -38,6 +38,7 @@ Rules dictate coding conventions, tools, validation, testing, source control, de
   - `dotnet-aspire-aspnet-blazor` — .NET Aspire + ASP.NET Core + Blazor WASM
   - `dotnet-avalonia-xplatform-desktop` — .NET Avalonia cross-platform desktop
   - `python-uv-fastapi-vite` — Python (uv) + FastAPI + Vite frontend
+- **Swarm**: [`.agents/rules/swarm.md`](.agents/rules/swarm.md) — goal-driven agent swarm on the ZCode harness: primary-session orchestrator + ≤5 least-privilege worker types, `$swarm` skill entry point, shared worker rules in `.agents/rules/swarm-workers.md`, run state under gitignored `.swarm/<run-id>/`.
 
 **IMPORTANT:** Check the relevant rules file before working on any file or performing implementation.
 

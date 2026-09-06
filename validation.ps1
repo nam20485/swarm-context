@@ -142,11 +142,13 @@ function Step-Test {
 
     $testPaths = @(
         (Join-Path $repoRoot '.agents/skills/gh-issue-tracking-init/scripts/tests'),
-        (Join-Path $repoRoot '.agents/skills/update-powershell-standard/scripts/tests')
+        (Join-Path $repoRoot '.agents/skills/update-powershell-standard/scripts/tests'),
+        (Join-Path $repoRoot '.agents/skills/swarm/scripts/tests')
     )
     $coveragePaths = @(
         (Join-Path $repoRoot '.agents/skills/gh-issue-tracking-init/scripts'),
-        (Join-Path $repoRoot '.agents/skills/update-powershell-standard/scripts')
+        (Join-Path $repoRoot '.agents/skills/update-powershell-standard/scripts'),
+        (Join-Path $repoRoot '.agents/skills/swarm/scripts')
     )
     $coverageFile = Join-Path $repoRoot 'coverage.xml'
 

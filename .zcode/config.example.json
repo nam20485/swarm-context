@@ -1,0 +1,44 @@
+{
+  "mcp": {
+    "servers": {
+      "sequential-thinking": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-sequential-thinking@2026.7.4"],
+        "env": {}
+      },
+      "memory-graph": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-memory@2026.7.4"],
+        "env": {}
+      },
+      "web-reader": {
+        "type": "http",
+        "url": "https://api.z.ai/api/mcp/web_reader/mcp",
+        "headers": {
+          "Authorization": "<Z_AI_API_KEY>"
+        }
+      },
+      "zread": {
+        "type": "http",
+        "url": "https://api.z.ai/api/mcp/zread/mcp",
+        "headers": {
+          "Authorization": "<Z_AI_API_KEY>"
+        }
+      },
+      "web-search-prime": {
+        "type": "http",
+        "url": "https://api.z.ai/api/mcp/web_search_prime/mcp",
+        "headers": {
+          "Authorization": "<Z_AI_API_KEY>"
+        }
+      },
+      "exa": {
+        "type": "http",
+        "url": "https://mcp.exa.ai/mcp?tools=web_search_exa,web_fetch_exa,web_search_advanced_exa,get_code_context_exa,crawling_exa",
+        "headers": {
+          "x-api-key": "<EXA_API_KEY>"
+        }
+      }
+    }
+  }
+}
