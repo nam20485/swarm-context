@@ -4,7 +4,8 @@ description: "Read-only swarm worker for codebase investigation and web/document
 color: blue
 model: "custom:builtin%3Azai-coding-plan:GLM-5.3-Flash"
 injectAgentsMd: false
-tools: [Read, Grep, Glob, WebFetch, WebSearch]
+tools: [Read, Grep, Glob, WebFetch, WebSearch, mcp__web-reader__webReader, mcp__web-search-prime__web_search_prime, mcp__zread__get_repo_structure, mcp__zread__read_file, mcp__zread__search_doc]
+mcpServers: [web-reader, web-search-prime, zread]
 maxTurns: 25
 ---
 

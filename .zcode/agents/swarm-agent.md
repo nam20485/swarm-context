@@ -8,11 +8,11 @@ tools: [Read, Grep, Glob, TodoWrite]
 maxTurns: 25
 # --- extension examples (copy this file, uncomment what the task needs) ---
 # tools: [Read, Grep, Glob, TodoWrite, Edit, Write, Bash]   # implementer
-# tools: [Read, Grep, Glob, WebFetch, WebSearch]            # researcher
+# tools: [Read, Grep, Glob, WebFetch, WebSearch, mcp__web-reader__webReader, mcp__web-search-prime__web_search_prime, mcp__zread__get_repo_structure, mcp__zread__read_file, mcp__zread__search_doc]  # researcher (add mcpServers below)
 # tools: [Read, Grep, Glob, Bash]                           # verifier/reviewer
 # thoughtLevel: high      # only takes effect together with an explicit model
 # disallowedTools: [Bash] # deny-list alternative to the allow-list
-# mcpServers: [memory]    # fails fast if the server is not connected
+# mcpServers: [web-reader, web-search-prime, zread]  # fails fast if any server is not connected
 ---
 
 First, read and follow [.agents/rules/swarm-workers.md](../../.agents/rules/swarm-workers.md).
