@@ -49,6 +49,7 @@ desktop.ini
 # Agent swarm run state (per-run, local only)
 .swarm/
 
-# ZCode workspace state — keep only the committed agent definitions
+# ZCode workspace state — keep only the committed agent definitions and the MCP config template
 .zcode/*
 !.zcode/agents/
+!.zcode/config.example.json
