@@ -19,11 +19,15 @@ The primary session acts as the orchestrator and spawns worker subagents through
 |---|---|---|
 | `swarm-agent` | Read, Grep, Glob, TodoWrite | default / read-only analysis (template to extend) |
 | `swarm-implementer` | Read, Grep, Glob, TodoWrite, Edit, Write, Bash | any file edit or build |
-| `swarm-researcher` | Read, Grep, Glob, WebFetch, WebSearch | web / docs research |
+| `swarm-researcher` | Read, Grep, Glob, WebFetch, WebSearch, Z.AI MCP (`web-reader`, `web-search-prime`, `zread`) | web / docs research |
 | `swarm-verifier` | Read, Grep, Glob, Bash | run verification commands for evidence |
 | `swarm-reviewer` | Read, Grep, Glob, Bash | diff / quality review |
 
 Cap: ≤5 dedicated types. All definitions set `injectAgentsMd: false` — workers get their conventions from `.agents/rules/swarm-workers.md` plus the task's Constraints element, not from the primary session's AGENTS.md (whose mandates reference tools they lack).
+
+## MCP servers
+
+The Z.AI servers (`web-reader`, `web-search-prime`, `zread`) are granted to `swarm-researcher` by full tool name (`mcp__web-reader__webReader`, `mcp__web-search-prime__web_search_prime`, `mcp__zread__get_repo_structure`, `mcp__zread__read_file`, `mcp__zread__search_doc` — ZCode silently ignores wildcards like `mcp__server__*`) plus a `mcpServers: [web-reader, web-search-prime, zread]` declaration that fails fast if a server is not connected. MCP tools are retained only where granted by full name — every other worker is MCP-free by design. The servers are defined project-locally in `.zcode/config.json` (gitignored: real keys, and ZCode config stores values literally with no env-var interpolation) with the committable template `.zcode/config.example.json`; per-server tool documentation lives in [`.agents/rules/tools.md`](tools.md).
 
 ## Budget
 

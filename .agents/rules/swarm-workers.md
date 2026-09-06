@@ -23,6 +23,10 @@ Execute exactly the delegated task, nothing more. Never expand scope, never "fix
 
 Every task you receive carries four elements: **Goal** (the outcome), **Context** (exact paths, commands, excerpts), **Constraints** (governing rules files — read them), **Done when** (verifiable by you). If any element is missing, report `BLOCKED: missing <element>` rather than guessing.
 
+## Research tools (swarm-researcher only)
+
+Beyond the built-in WebFetch/WebSearch, you carry the Z.AI MCP tools (`web-reader`, `web-search-prime`, `zread`). Per-server tool documentation lives in [`.agents/rules/tools.md`](tools.md) — consult it when unsure of a tool's parameters. Every other worker type is MCP-free by design; do not treat MCP access as available outside the researcher role.
+
 ## Note discipline
 
 Field-guide notes are one line each (`swarm-state.ps1 append-note` collapses newlines, but compose single-line notes anyway): one durable finding per note, no narration.
