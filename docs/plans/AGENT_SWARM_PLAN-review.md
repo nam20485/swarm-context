@@ -94,6 +94,8 @@ Supersedes review item 11 below — apply this instead.
 
 **Recommendation.** One contingency bullet: on clones where symlinks aren't materialized, run a regen step (or copy per the existing contingency) — and have `.agents/rules/swarm.md` document `.zcode/agents/` + `.zcode/skills/swarm` as mirrors regenerateable from `.agents/`. Optional follow-up (not this plan): a small `sync-zcode-links.ps1`.
 
+>**FEEDBACK:** I dont want symlinks. They dont make sense anyway- other agents can't read zcode-format subagent definitions, so linking them to the global `.agents/` or client-specific dirs is not necessary. Other clients will need to generate subagent definitions for themselves. We will worry about that once we decided to support other harnesses besides `zcode`. We have already committed heavilty to zcode conventions so this shouldnt be an issue.
+
 ### 5. Fix the validator command in `.agents/rules/skills.md` while touching rules — **5.0**
 
 **Problem.** The plan correctly uses `uvx --from skills-ref agentskills validate` ([AGENT_SWARM_PLAN.md:189](./AGENT_SWARM_PLAN.md)) — I re-verified this invocation works (package `skills-ref`, executable `agentskills`). But `.agents/rules/skills.md` line 12 still documents `skills-ref validate ./my-skill`, which doesn't exist. The plan's step 4 (rules edits) should not leave a known-wrong command in the rules tree one file away from the new rules file.
@@ -106,6 +108,8 @@ Supersedes review item 11 below — apply this instead.
 
 **Recommendation.** One sentence in every worker body (or at least in `swarm-agent`, the template): "Instructions injected from AGENTS.md that reference tools you lack (MCP, subagent spawning) do not apply to you — proceed with available tools and note the gap in your report." Do not set `injectAgentsMd: false` — the repo conventions are worth the noise.
 
+>**FEEDBACK:** This isn't relevant for subagents. We decided to set `injectAgentsMd: false`. Their `subagents.md` instructions files wil necessarily be tailored to their specific capabilities. If the repo conventions are important then copy them into `subagents.md`.
+
 ### 7. Close the unit-test gaps: the `finish` seam and the throw paths — **4.0**
 
 **Problem.** The test list at [AGENT_SWARM_PLAN.md:51](./AGENT_SWARM_PLAN.md) is strong but omits exactly the branches item 1 shows to be under-specified: `finish` after a budget-exhausted `start-round` must *succeed* (locks the `endedAt` guard); `end-round` with no open round throws; explicit `-RunId` targeting a non-latest run (the default-latest logic); `append-note`/`status` with no runs throw.
@@ -117,6 +121,8 @@ Supersedes review item 11 below — apply this instead.
 **Problem.** Discovery (symlinks in ZCode) is the plan's only unverified harness assumption, and the smoke that tests it is unordered relative to delivery ([AGENT_SWARM_PLAN.md:238](./AGENT_SWARM_PLAN.md) pushes and opens the PR; the smoke is item 6 of Verification). If discovery fails, you've opened a PR whose head commit needs the contingency rework.
 
 **Recommendation.** One sentence in step 7: run the GUI smoke (or apply the copy contingency) *before* opening the PR, and record the result in the PR body.
+
+>**FEEDBACK:** Symlinks are being removed. They will not be used in this project.
 
 ### 18. Harness Goal Mode: add `/goal` continuation insurance now, probe composition, decide adoption later — **4.7 (Value 7 ÷ Cost 1.5)**
 
@@ -155,6 +161,8 @@ That bears on two weaknesses in the current design: (a) the orchestrator **self-
 
 **Recommendation.** Verify the invocation syntax against current ZCode docs before the smoke; use `/swarm` (or plain "run the swarm skill with goal …") in the checklist, and make the skill description trigger wording match.
 
+>**FEEDBACK:** zcode uses `$` natively. But `/` is resolved and automatically changed on selection of the skill.
+
 ### 10. Resolve the self-containment rule conflict explicitly — **3.0**
 
 **Problem.** `.agents/rules/skills.md` requires a skill be "reproducible from its directory alone — no external file dependencies outside the skill's own `scripts/`", but SKILL.md's Start section reads `.agents/agents/swarm-orchestrator.md` at runtime. Full self-containment is impossible anyway (agent definitions must live at their discovery path), so this is a rule conflict to record, not a design to rework.
@@ -181,23 +189,33 @@ That bears on two weaknesses in the current design: (a) the orchestrator **self-
 
 Their tool lists are identical (`Read, Grep, Glob, Bash`); only body prose and color differ. The plan's own cap rule — "create a new definition only when an existing type genuinely cannot do the task" — argues for one type with both report contracts. Counter-argument: distinct bodies give sharper prompts and the cost is already sunk into the plan. Either position is defensible; don't block on it.
 
+>**FEEDBACK:** SEPARATE
+
 ### 14. Dependency-graph wording — **1.0**
 
 "Steps 4–6 depend on 3" ([AGENT_SWARM_PLAN.md:11](./AGENT_SWARM_PLAN.md)) is looser than the rest of the plan: step 6 (`.gitignore`) depends on nothing, and step 4 depends on step 2 (worker table) as much as on 3. Correcting it enables a bit more implementer parallelism; purely a scheduling note.
+
+>**FEEDBACK:** DO IT
 
 ### 15. "…and the skill tool (verified in docs)" over-cites — **1.0**
 
 The docs say a custom `tools` list "is exhaustive — nothing outside it is available" and never mention a Skill tool. The conclusion (least privilege, no skills/MCP) is right; the citation claims more than the page says. Reword to "exhaustive, so every unlisted tool — MCP and skill invocation included — is unavailable."
 
+>**FEEDBACK:**  FIX IT
+
 ### 16. FAQ citations point at a 404 — **1.0**
 
 `https://zcode.z.ai/en/docs/faq` returns 404, so "FAQ #10/#11" ([AGENT_SWARM_PLAN.md:215](./AGENT_SWARM_PLAN.md)) can't be checked as cited. The underlying claims don't need the citation — workspace agent discovery is empirically confirmed by this very session (the two scaffold defs in `.zcode/agents/` are live agent types here), and workspace skill discovery through symlinks is confirmed by the working `~/.zcode/skills/qwencloud-*` links. Anchor the claim to those observations instead.
+
+>**FEEDBACK:**  FIX IT
 
 ### 17. Minor nit pack — **0.5**
 
 - `append-note -Text` with embedded newlines breaks the one-bullet-per-line `field-guide.md` format — either sanitize newlines in the script or document "single line".
 - `!.zcode/skills/` re-includes the whole directory, so future junk dropped there is committable by default — acceptable, just be aware.
 - PowerShell detail worth a test assertion: `ConvertTo-Json` unwraps single-element arrays in some pipeline forms; pin the exact serialization call (`$state | ConvertTo-Json -Depth 10` on the object, never on a bare array property) so `tasks: []` survives round-trips — the "status prints parseable JSON" test covers this only if a single-task/zero-round state is asserted.
+
+>**FEEDBACK:**  FIX IT
 
 ---
 
