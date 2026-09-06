@@ -20,13 +20,11 @@ other repo name is a clone instance seeded from this one.
 ## Getting started
 
 1. Create a new repository from this template (or clone it).
-2. Ensure all [environment variables](docs/environment-variables.md) are set in your shell.
-3. Read [`AGENTS.md`](AGENTS.md) — the operating manual for AI agents working in this repo.
-4. Consult [`.agents/memory.md`](.agents/memory.md) for project history and current state.
+2. Read [`AGENTS.md`](AGENTS.md) — the operating manual for AI agents working in this repo.
+3. Consult [`.agents/memory.md`](.agents/memory.md) for project history and current state.
 
 ## Configuration
 
-Environment variables are documented in [`docs/environment-variables.md`](docs/environment-variables.md).
 Secrets are referenced as `{env:VAR}` patterns in [`.opencode/opencode.jsonc`](.opencode/opencode.jsonc)
 and are never committed to the repository.
 
@@ -38,7 +36,7 @@ and are never committed to the repository.
 | `.agents/memory.md` | Durable project context: current activity, completed work, decisions |
 | `.agents/rules/` | Coding conventions, tool usage, validation, and practices (one file per subject) |
 | `.agents/skills/` | Agent Skills (currently `gh-issue-tracking-init`) |
-| `docs/` | Reference documentation including environment variables |
+| `docs/` | Reference documentation and plans |
 | `scripts/` | GitHub CLI helpers: auth, label sync, PR review-thread management, index refresh |
 | `local_ai_instruction_modules/` | Workflow assignment and dynamic workflow lookup tables |
 | `.opencode/` | OpenCode agent definitions and runtime configuration |
