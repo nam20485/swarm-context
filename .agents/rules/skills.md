@@ -9,8 +9,10 @@ Skill creation conventions.
 Validate with the official validator before finishing:
 
 ```bash
-skills-ref validate ./my-skill
+uvx --from skills-ref agentskills validate ./my-skill
 ```
+
+(Package `skills-ref`, executable `agentskills` — the bare `skills-ref` command does not exist.)
 
 If anything in this rules file conflicts with the spec, the spec wins — update this file.
 
