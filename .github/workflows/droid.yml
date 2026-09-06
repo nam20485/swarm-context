@@ -15,6 +15,7 @@ on:
 jobs:
   droid:
     if: |
+      secrets.FACTORY_API_KEY != '' &&
       (
         github.event_name == 'issue_comment' &&
         contains(github.event.comment.body, '@droid') &&
