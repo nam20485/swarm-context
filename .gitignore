@@ -45,3 +45,10 @@ desktop.ini
 
 # Qwen Code agent session state
 .qwen/
+
+# Agent swarm run state (per-run, local only)
+.swarm/
+
+# ZCode workspace state — keep only the committed agent definitions
+.zcode/*
+!.zcode/agents/
