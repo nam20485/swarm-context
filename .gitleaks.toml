@@ -1,0 +1,10 @@
+title = "agent-context gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test fixtures with intentional fake secrets for AssertNoSecrets"
+paths = [
+    '''\.agents/skills/gh-issue-tracking-init/scripts/tests/AssertNoSecrets\.Tests\.ps1$''',
+]

@@ -1,0 +1,21 @@
+[
+  { "name": "plan", "color": "5319e7", "description": "Level: top-level application plan issue" },
+  { "name": "epic", "color": "1d76db", "description": "Level: epic (project/component)" },
+  { "name": "story", "color": "0e8a16", "description": "Level: story" },
+  { "name": "task", "color": "fbca04", "description": "Level: atomic task" },
+  { "name": "P0", "color": "b60205", "description": "Priority: critical" },
+  { "name": "P1", "color": "d93f0b", "description": "Priority: high" },
+  { "name": "P2", "color": "fbca04", "description": "Priority: medium" },
+  { "name": "P3", "color": "c2e0c6", "description": "Priority: low" },
+  { "name": "area/ai", "color": "5319e7", "description": "Area: AI / inference" },
+  { "name": "area/ui", "color": "1d76db", "description": "Area: UI" },
+  { "name": "area/core", "color": "0052cc", "description": "Area: core" },
+  { "name": "area/infra", "color": "006b75", "description": "Area: infrastructure / DevOps" },
+  { "name": "area/docs", "color": "bfdadc", "description": "Area: documentation" },
+  { "name": "blocked", "color": "b60205", "description": "Status: blocked by another issue" },
+  { "name": "needs-review", "color": "fbca04", "description": "Status: awaiting review" },
+  { "name": "wontfix", "color": "ffffff", "description": "Status: will not be worked on" },
+  { "name": "gh-issue-tracking:direct-body", "color": "6f42c1", "description": "Trigger: dispatch the issue body verbatim as a prompt (no workflow name/args parsed)" },
+  { "name": "gh-issue-tracking:init-success", "color": "1a7f37", "description": "Signal: gh-issue-tracking-init completed successfully — plan/epics/stories/tasks initialized" },
+  { "name": "gh-issue-tracking:epic-implemented", "color": "1a7f37", "description": "Signal: an epic issue has been implemented (implement-epic ran successfully); awaits the review/debrief follow-on" }
+]

@@ -1,0 +1,47 @@
+# Kilo agent session state
+.kilo/
+
+# gh-issue-tracking-init forensic run logs (one timestamped file per run)
+gh-init-*.log
+
+# Local-only GPG signing notes (contains workflow/secrets guidance, not for commit)
+docs/gpg-non-interactive-signing.md
+
+# Test result artifacts
+testResults.xml
+
+# Scratch / temporary issue-body files
+scripts/tmp-*.txt
+
+# Environment files (never commit real secrets)
+.env
+.env.*
+!.env.example
+
+# Node dependencies
+node_modules/
+
+# Build artifacts
+bin/
+obj/
+dist/
+build/
+out/
+
+# Coverage artifacts
+coverage/
+coverage.xml
+coverage-html/
+
+# IDE / editor
+.idea/
+.vs/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Qwen Code agent session state
+.qwen/
