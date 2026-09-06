@@ -4,7 +4,7 @@ Reviewed 2026-09-05 against first-hand sources: ZCode subagent docs, the live ha
 
 **Verdict:** execution-ready. Interfaces, frontmatter, verification steps, and contingencies are unusually precise, and every harness claim I could check held up (see "Verified correct"). The findings below are spec seams and gaps, not design flaws. Apply Bucket A before implementation starts — all are cheap edits to the plan text.
 
-**Update 2026-09-06:** three user-directed changes added as mandatory items in [User-directed updates](#user-directed-updates-2026-09-06) — background worker spawns, `injectAgentsMd: false` with a shared worker-instructions file, and a no-interactive-permission-prompts requirement. Fold all three into the plan at approval; update 2 supersedes Bucket A item 6, update 3 supersedes Bucket B item 11. Same day, research into harness Goal Mode produced Bucket A item 18; after the user rejected Goal Mode as a substrate, its two motivating weaknesses were converted into in-plan solutions — item 19 (verifier-gated round verdicts) and the re-entry-contract extension in item 2.
+**Update 2026-09-06:** four user-directed changes added as mandatory items in [User-directed updates](#user-directed-updates-2026-09-06) — background worker spawns, `injectAgentsMd: false` with tailored worker instructions, a no-interactive-permission-prompts requirement, and Z.AI MCP server access for the swarm (workspace config files already created — see U4). Fold all four into the plan at approval; update 2 supersedes Bucket A item 6, update 3 supersedes Bucket B item 11. Same day, research into harness Goal Mode produced Bucket A item 18; after the user rejected Goal Mode as a substrate, its two motivating weaknesses were converted into in-plan solutions — item 19 (verifier-gated round verdicts) and the re-entry-contract extension in item 2.
 
 ## Scoring method
 
@@ -14,7 +14,7 @@ Reviewed 2026-09-05 against first-hand sources: ZCode subagent docs, the live ha
 
 ## User-directed updates (2026-09-06) — mandatory, fold into the plan at approval
 
-Both are user decisions recorded here so they land in the plan with the rest of the review; scores are included for consistency but the bucket placement follows the directive, not the score.
+These are user decisions recorded here so they land in the plan with the rest of the review; scores are included for consistency but the bucket placement follows the directive, not the score.
 
 ### U1. Spawn every worker as a `background` agent — **4.0 (Value 8 ÷ Cost 2)**
 
@@ -63,6 +63,25 @@ The plan's own smoke test specifies "mode = Edit automatically" ([AGENT_SWARM_PL
 5. **Optional 2-minute probe** (closes the docs gap above with first-hand evidence): in a scratch session with mode = "Edit automatically", delegate one Bash-using task to a worker and confirm a permission prompt actually surfaces (then approve/reject and abandon the run). Record the observed behavior in `.agents/rules/swarm.md` next to the mode requirement.
 
 Supersedes review item 11 below — apply this instead.
+
+### U4. Z.AI MCP servers for the swarm — project-local config + per-worker grants — **3.5 (Value 7 ÷ Cost 2)**
+
+**Answer first:** at review time, no — every worker's exhaustive `tools` list dropped all MCP tools; `swarm-researcher` had only the built-in WebFetch/WebSearch. Directive: allow the Z.AI trio (`web-reader`, `web-search-prime`, `zread`) for subagents, and carry all servers defined in `.opencode/opencode.jsonc` in the project-local MCP config.
+
+**Done now (runtime config — created this session, outside the plan's file set):**
+
+- `.zcode/config.json` defines all six servers from `.opencode/opencode.jsonc` in ZCode's schema: `sequential-thinking` and `memory-graph` as pinned stdio servers (`command`/`args`/`env`, `@2026.7.4` — matching opencode and the repo's version-pinning rule), `web-reader`/`zread`/`web-search-prime`/`exa` as `type: "http"` with `url`/`headers`, keys taken from the working user-level `~/.zcode/cli/config.json`. Workspace servers auto-connect at session start (docs-verified); user scope overrides workspace for same-name servers, so this machine's behavior is unchanged while clones gain the servers project-locally.
+- **Secrets constraint (docs-verified):** ZCode config stores values literally — the MCP docs document **no** `${VAR}`/`{env:VAR}` interpolation — so a keyed workspace config can never be committed. Verified via `git check-ignore`: `.zcode/config.json` is already ignored by the applied `.zcode/*` pattern. Committed template instead: `.zcode/config.example.json` (placeholders `<Z_AI_API_KEY>`/`<EXA_API_KEY>`); fold-time gitignore addition: `!.zcode/config.example.json` (currently ignored too — verified).
+- Tool full names are scope-independent (server names identical in user and workspace scopes): `mcp__web-reader__webReader`, `mcp__web-search-prime__web_search_prime`, `mcp__zread__get_repo_structure`, `mcp__zread__read_file`, `mcp__zread__search_doc`.
+
+**Applied directly to the delivered implementation (branch `dev/agent-swarm`, PR #1 still open — same session as the config files; commit together):**
+
+- ✓ `swarm-researcher`: `tools` += the five full MCP tool names (docs: wildcards like `mcp__server__*` are silently ignored — full names only); added `mcpServers: [web-reader, web-search-prime, zread]` for fail-fast when a required server isn't connected at session start. Built-in WebFetch/WebSearch remain as fallback.
+- ✓ `swarm-agent` template: extension examples updated — the researcher example line carries the five MCP tool names, and the `mcpServers` example is now the Z.AI trio.
+- ✓ `.agents/rules/swarm.md` (researcher row + new "MCP servers" section) and `.agents/rules/swarm-workers.md` (new "Research tools" section) document the grant, the full-names-only rule, the gitignored-config/template split, and the pointer to `.agents/rules/tools.md` per-server docs.
+- ✓ `.gitignore`: `!.zcode/config.example.json` so the committed template survives the `.zcode/*` exclusion.
+- `swarm-implementer`/`swarm-verifier`/`swarm-reviewer` stay MCP-free — local work only, least privilege. (Interpretation of the directive: the trio is the allowed MCP *surface*, granted where web/docs access is part of the job. Say the word to broaden it.)
+- Smoke addition: in a **new** session, Settings → MCP shows the six servers connected (workspace-sourced); at least one researcher task exercises an MCP tool end-to-end.
 
 ---
 
@@ -235,12 +254,13 @@ The docs say a custom `tools` list "is exhaustive — nothing outside it is avai
 | Foreground subagents run in parallel but "the main task waits for all of them"; background lets it proceed, result "comes back to the main conversation on its own" | Docs (`#background`) — basis for U1 |
 | No include/reference mechanism in subagent definitions — "the body is the system prompt"; unrecognized keys silently ignored | Docs — basis for U2 |
 | Permission modes: "Ask before changes" (default) / "Edit automatically" (commands still confirm) / "Plan" / "Full access"; permission requests pause the task and "always wait" (no auto-continue); no config-file permission key — only session mode + "Always Allow" grants | Docs (safety-confirm) — basis for U3 |
+| Workspace MCP config `.zcode/config.json` → `mcp.servers`; stdio = `command`/`args`/`env`, http = `type`/`url`/`headers`; workspace servers auto-connect at session start; user overrides workspace; **no env-var interpolation** (values stored literally) | Docs (mcp-services) + the working user-level config as schema precedent — basis for U4 |
 | `validation.ps1:143-150` anchors and edit shape | Read the file; `$testPaths`/`$coveragePaths` append as spec'd |
 | Scaffold described accurately (2-line bodies, exact model ids) | Read `.zcode/agents/*.md` |
 | Test conventions + referenced rules files exist | `UpdatePowershellStandard.Tests.ps1`, `delegation.md`, `ci-cd.md`, `validation.md` all present |
 
 ## Watch during implementation (no plan change)
 
-- **Duplicate skill listings.** The current session lists symlinked skills twice (symlink path and canonical path both appear), i.e. the harness scans `~/.agents/skills/` directly *and* follows symlinks without dedup. Expect the workspace `swarm` skill may appear twice after step 5 — cosmetic, but confirm in the smoke that invocation is unambiguous.
+- **Skill discovery without symlinks (per the item-4/8 feedback).** `.agents/skills/swarm/` is itself a native workspace discovery path (the config guide's scan order covers `.zcode/skills/` *and* `.agents/skills/`), so dropping the `.zcode/skills` link changes nothing — confirm in the smoke that the skill lists exactly once and nothing in user scope shadows it.
 - **`end-round met` → `finish` interplay** falls out of item 1; make sure the skill text and the orchestrator body agree on which one ends a run.
 - **Goal Mode interactions (item 18 probe):** `TaskStop` on a runaway worker may auto-pause the whole goal ("stopping a running task also pauses the goal automatically"); `/goal replace` is blocked while any task runs; goal-round boundaries may not wait for background workers — the U1 rule (end rounds only with no pending tasks) is what keeps the two loops from racing.
