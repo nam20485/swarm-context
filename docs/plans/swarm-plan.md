@@ -36,7 +36,9 @@ while ! goal.successful
    // do swarm stuff!
 ```
 
-AGENTS.md for instructions
+# AGENTS.md for instructions
+
+Include the zcode docs site url in this file.
 
 Harness
 
