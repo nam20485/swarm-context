@@ -1,0 +1,165 @@
+@page "/sandbox/{Id}"
+@using System.Net
+@using SwarmSandbox.Web.Models
+@using SwarmSandbox.Web.Services
+@implements IDisposable
+@inject ISandboxApiClient Api
+@inject IJSRuntime Js
+@inject NavigationManager Navigation
+
+<PageTitle>Sandbox @Id</PageTitle>
+
+<h1>Sandbox @Id</h1>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger" role="alert">@_error</div>
+}
+
+@if (_status is null)
+{
+    <p><em>@(_error ?? "Loading...")</em></p>
+}
+else
+{
+    <div class="card status-card mb-4">
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-3">State</dt>
+                <dd class="col-sm-9"><span class="badge @BadgeClass(_status.Info.State)">@_status.Info.State</span></dd>
+                <dt class="col-sm-3">Container name</dt>
+                <dd class="col-sm-9">@_status.Info.ContainerName</dd>
+                <dt class="col-sm-3">Container ID</dt>
+                <dd class="col-sm-9">@_status.Info.ContainerId</dd>
+                <dt class="col-sm-3">Created</dt>
+                <dd class="col-sm-9">@_status.Info.CreatedAt</dd>
+                <dt class="col-sm-3">Expires</dt>
+                <dd class="col-sm-9">@(_status.Info.ExpiresAt?.ToString() ?? "-")</dd>
+            </dl>
+            @if (_status.Info.State == SandboxState.Faulted)
+            {
+                <div class="alert alert-danger mt-3 mb-0">
+                    <strong>Last error:</strong> @(_status.LastError ?? "(none reported)")
+                </div>
+            }
+        </div>
+    </div>
+
+    <button class="btn btn-outline-danger" @onclick="DeleteAsync">Delete sandbox</button>
+}
+
+<h3 class="mt-4">Logs</h3>
+<p class="text-muted mb-0">
+    Container logs are not surfaced in the UI yet — this page only calls <code>GET /api/sandboxes/@Id</code>.
+    Inspect logs on the host with <code>docker logs @(_status?.Info.ContainerName ?? "&lt;container name&gt;")</code>.
+</p>
+
+<h3 class="mt-4">How to connect with ZCode desktop</h3>
+<div class="card connect-instructions">
+    <div class="card-body">
+        <p>The sandbox container keeps running; your local ZCode desktop connects to it like any Docker remote environment.</p>
+        <ol class="mb-0">
+            <li>Open ZCode desktop and click <strong>+</strong> next to <strong>Projects</strong>, then choose <strong>Remote Connection</strong>.</li>
+            <li>Choose <strong>Docker</strong>.</li>
+            <li>Pick this sandbox's container <code>@(_status?.Info.ContainerName ?? "(shown in the status card)")</code>
+                from the running-container dropdown, or paste the container name/ID.</li>
+            <li>On first connect, the desktop automatically deploys its server runtime into the container
+                (<code>$HOME/.zcode/server</code>) — no action needed.</li>
+            <li>When asked for a directory, choose <code>/workspace</code> — that is the pre-cloned development branch.</li>
+            <li>Run your swarm there (the <code>$swarm</code> skill) — it executes sandboxed inside the container.</li>
+        </ol>
+    </div>
+</div>
+
+@code {
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
+
+    private SandboxStatus? _status;
+    private string? _error;
+    private CancellationTokenSource? _cts;
+
+    [Parameter]
+    public string Id { get; set; } = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+        _cts = new CancellationTokenSource();
+        _ = PollAsync(_cts.Token);
+    }
+
+    // Polling only — the sandbox service is plain REST; there is no push channel.
+    private async Task PollAsync(CancellationToken ct)
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(PollInterval);
+            while (await timer.WaitForNextTickAsync(ct))
+            {
+                await RefreshAsync();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Page disposed.
+        }
+    }
+
+    private async Task RefreshAsync()
+    {
+        try
+        {
+            _status = await Api.GetAsync(Id);
+            _error = null;
+        }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            _status = null;
+            _error = $"Sandbox '{Id}' not found — it may have been removed.";
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        catch (HttpRequestException ex)
+        {
+            _error = $"Sandbox API unreachable: {ex.Message}";
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task DeleteAsync()
+    {
+        if (!await Js.InvokeAsync<bool>("confirm", $"Delete sandbox '{Id}'?"))
+        {
+            return;
+        }
+
+        try
+        {
+            await Api.DeleteAsync(Id);
+            Navigation.NavigateTo("");
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            StateHasChanged();
+        }
+    }
+
+    private static string BadgeClass(SandboxState state) => state switch
+    {
+        SandboxState.Running => "text-bg-success",
+        SandboxState.Creating => "text-bg-info",
+        SandboxState.Stopping => "text-bg-warning",
+        SandboxState.Faulted => "text-bg-danger",
+        _ => "text-bg-secondary"
+    };
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}

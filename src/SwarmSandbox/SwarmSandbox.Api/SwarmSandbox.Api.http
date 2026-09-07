@@ -1,0 +1,24 @@
+@SwarmSandbox.Api_HostAddress = http://localhost:5123
+
+POST {{SwarmSandbox.Api_HostAddress}}/api/sandboxes
+Content-Type: application/json
+
+{
+  "branch": "development"
+}
+
+###
+
+GET {{SwarmSandbox.Api_HostAddress}}/api/sandboxes
+Accept: application/json
+
+###
+
+GET {{SwarmSandbox.Api_HostAddress}}/api/sandboxes/{id}
+Accept: application/json
+
+###
+
+DELETE {{SwarmSandbox.Api_HostAddress}}/api/sandboxes/{id}
+
+###

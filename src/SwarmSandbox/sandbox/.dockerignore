@@ -1,0 +1,4 @@
+# Keep the build context minimal: only the image definition files are needed.
+*
+!Dockerfile
+!entrypoint.sh
