@@ -27,7 +27,12 @@ public class EfSandboxStore(SwarmSandboxDbContext db) : ISandboxStore
 
     public async Task<IReadOnlyList<SandboxRecord>> FindExpiredAsync(DateTimeOffset now, CancellationToken ct) =>
         await db.Sandboxes
-            .Where(s => (s.State == SandboxState.Running || s.State == SandboxState.Faulted)
+            // Creating is included so rows stranded by an aborted provisioning call
+            // (client cancel or process crash between insert and Running update) still
+            // expire out instead of sitting in the list forever.
+            .Where(s => (s.State == SandboxState.Creating
+                            || s.State == SandboxState.Running
+                            || s.State == SandboxState.Faulted)
                         && s.ExpiresAt != null && s.ExpiresAt <= now)
             .ToListAsync(ct);
 }

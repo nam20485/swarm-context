@@ -16,6 +16,7 @@ public interface ISandboxStore
 
     Task UpdateAsync(SandboxRecord record, CancellationToken ct);
 
-    /// <summary>Returns Running/Faulted records whose ExpiresAt is at or before <paramref name="now"/>.</summary>
+    /// <summary>Returns Creating/Running/Faulted records whose ExpiresAt is at or before <paramref name="now"/>
+    /// (Creating included so rows stranded by an aborted or crashed provisioning call still expire).</summary>
     Task<IReadOnlyList<SandboxRecord>> FindExpiredAsync(DateTimeOffset now, CancellationToken ct);
 }

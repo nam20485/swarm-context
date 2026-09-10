@@ -13,13 +13,16 @@ public class SandboxReaperTests
     private static readonly DateTimeOffset Now = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public async Task ReapOnceReapsOnlyExpiredRunningOrFaultedRowsAndMarksThemRemoved()
+    public async Task ReapOnceReapsOnlyExpiredCreatingRunningOrFaultedRowsAndMarksThemRemoved()
     {
         var store = new InMemorySandboxStore();
         var expiredRunning = Row("expired-running", SandboxState.Running, Now.AddHours(-1));
         var expiredFaulted = Row("expired-faulted", SandboxState.Faulted, Now.AddHours(-2));
+        // A Creating row past its expiry is stranded provisioning (client abort or
+        // crash between insert and the Running update) — it must expire out too.
+        var strandedCreating = Row("stranded-creating", SandboxState.Creating, Now.AddHours(-1));
         var fresh = Row("fresh", SandboxState.Running, Now.AddHours(1));
-        store.Seed(expiredRunning, expiredFaulted, fresh);
+        store.Seed(expiredRunning, expiredFaulted, strandedCreating, fresh);
 
         var provisioner = Substitute.For<ISandboxProvisioner>();
         var reaper = CreateReaper(store, provisioner);
@@ -32,11 +35,13 @@ public class SandboxReaperTests
         await provisioner.Received(1).RemoveAsync("sbx-expired-running", Arg.Any<CancellationToken>());
         await provisioner.Received(1).StopAsync("sbx-expired-faulted", Arg.Any<CancellationToken>());
         await provisioner.Received(1).RemoveAsync("sbx-expired-faulted", Arg.Any<CancellationToken>());
+        await provisioner.Received(1).RemoveAsync("sbx-stranded-creating", Arg.Any<CancellationToken>());
         await provisioner.DidNotReceive().StopAsync("sbx-fresh", Arg.Any<CancellationToken>());
         await provisioner.DidNotReceive().RemoveAsync("sbx-fresh", Arg.Any<CancellationToken>());
 
         Assert.Equal(SandboxState.Removed, store.Find("expired-running")!.State);
         Assert.Equal(SandboxState.Removed, store.Find("expired-faulted")!.State);
+        Assert.Equal(SandboxState.Removed, store.Find("stranded-creating")!.State);
         Assert.Equal(SandboxState.Running, store.Find("fresh")!.State);
     }
 

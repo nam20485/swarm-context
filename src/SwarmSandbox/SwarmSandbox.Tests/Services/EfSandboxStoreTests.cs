@@ -69,18 +69,20 @@ public class EfSandboxStoreTests : IDisposable
     }
 
     [Fact]
-    public async Task FindExpired_returns_only_expired_running_or_faulted_rows()
+    public async Task FindExpired_returns_only_expired_creating_running_or_faulted_rows()
     {
+        await _store.AddAsync(Row("expired-creating", SandboxState.Creating, expiresAt: Now.AddMinutes(-10)), CancellationToken.None);
         await _store.AddAsync(Row("expired-running", SandboxState.Running, expiresAt: Now.AddMinutes(-5)), CancellationToken.None);
         await _store.AddAsync(Row("expired-faulted", SandboxState.Faulted, expiresAt: Now.AddMinutes(-1)), CancellationToken.None);
         await _store.AddAsync(Row("future", SandboxState.Running, expiresAt: Now.AddMinutes(30)), CancellationToken.None);
         await _store.AddAsync(Row("stopped", SandboxState.Stopped, expiresAt: Now.AddMinutes(-30)), CancellationToken.None);
+        await _store.AddAsync(Row("removed", SandboxState.Removed, expiresAt: Now.AddMinutes(-30)), CancellationToken.None);
         await _store.AddAsync(Row("no-expiry", SandboxState.Running, expiresAt: null), CancellationToken.None);
 
         var expired = await _store.FindExpiredAsync(Now, CancellationToken.None);
 
         Assert.Equal(
-            new[] { "expired-faulted", "expired-running" },
+            new[] { "expired-creating", "expired-faulted", "expired-running" },
             expired.Select(r => r.Id).OrderBy(id => id).ToArray());
     }
 

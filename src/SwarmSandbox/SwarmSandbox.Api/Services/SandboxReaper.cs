@@ -8,8 +8,9 @@ using SwarmSandbox.Api.Data;
 namespace SwarmSandbox.Api.Services;
 
 /// <summary>
-/// Background loop that stops/removes sandboxes whose TTL expired (Running or Faulted past ExpiresAt)
-/// and marks them Removed. Per-item failures are logged and the loop keeps ticking.
+/// Background loop that stops/removes sandboxes whose TTL expired (Creating/Running/Faulted past
+/// ExpiresAt — Creating included so rows stranded by an aborted or crashed provisioning call still
+/// expire out) and marks them Removed. Per-item failures are logged and the loop keeps ticking.
 /// </summary>
 public sealed class SandboxReaper(
     IServiceScopeFactory scopeFactory,

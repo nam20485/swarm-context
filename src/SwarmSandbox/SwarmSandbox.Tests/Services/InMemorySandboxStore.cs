@@ -43,6 +43,6 @@ internal sealed class InMemorySandboxStore : ISandboxStore
     public Task<IReadOnlyList<SandboxRecord>> FindExpiredAsync(DateTimeOffset now, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<SandboxRecord>>(_records.Values
             .Where(r => r.ExpiresAt is { } expires && expires <= now &&
-                        r.State is SandboxState.Running or SandboxState.Faulted)
+                        r.State is SandboxState.Creating or SandboxState.Running or SandboxState.Faulted)
             .ToList());
 }
