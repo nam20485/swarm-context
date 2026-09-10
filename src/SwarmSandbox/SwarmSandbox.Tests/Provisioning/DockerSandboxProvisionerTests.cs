@@ -128,6 +128,53 @@ public class DockerSandboxProvisionerTests
     }
 
     [Fact]
+    public async Task CreateSandboxAsync_RemovesCreatedContainerWhenStartFails()
+    {
+        var subject = CreateSubject();
+        subject.Containers
+            .CreateContainerAsync(Arg.Any<CreateContainerParameters>(), Arg.Any<CancellationToken>())
+            .Returns(new CreateContainerResponse { ID = "docker-id-42" });
+        subject.Containers
+            .StartContainerAsync(Arg.Any<string>(), Arg.Any<ContainerStartParameters>(), Arg.Any<CancellationToken>())
+            .Returns<bool>(_ => throw new InvalidOperationException("oci runtime error"));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            () => subject.Provisioner.CreateSandboxAsync(new SandboxRequest("main"), CancellationToken.None));
+
+        // The created-but-unstarted container must be force-removed, not orphaned.
+        _ = subject.Containers.Received(1).RemoveContainerAsync(
+            "docker-id-42",
+            Arg.Is<ContainerRemoveParameters>(p => p.Force == true && p.RemoveVolumes == true),
+            Arg.Any<CancellationToken>());
+        Assert.Contains(
+            subject.Logger.Entries,
+            e => e.Level == LogLevel.Warning && e.Message.Contains("failed to start"));
+    }
+
+    [Fact]
+    public async Task CreateSandboxAsync_StartCleanupFailureStillThrowsOriginalError()
+    {
+        var subject = CreateSubject();
+        subject.Containers
+            .CreateContainerAsync(Arg.Any<CreateContainerParameters>(), Arg.Any<CancellationToken>())
+            .Returns(new CreateContainerResponse { ID = "docker-id-42" });
+        subject.Containers
+            .StartContainerAsync(Arg.Any<string>(), Arg.Any<ContainerStartParameters>(), Arg.Any<CancellationToken>())
+            .Returns<bool>(_ => throw new InvalidOperationException("oci runtime error"));
+        subject.Containers
+            .RemoveContainerAsync(Arg.Any<string>(), Arg.Any<ContainerRemoveParameters>(), Arg.Any<CancellationToken>())
+            .Returns<Task>(_ => throw new DockerApiException(HttpStatusCode.Conflict, "remove failed"));
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => subject.Provisioner.CreateSandboxAsync(new SandboxRequest("main"), CancellationToken.None));
+
+        Assert.Equal("oci runtime error", exception.Message);
+        Assert.Contains(
+            subject.Logger.Entries,
+            e => e.Level == LogLevel.Error && e.Message.Contains("Cleanup of unstarted container"));
+    }
+
+    [Fact]
     public async Task CreateSandboxAsync_DefaultsBranchWhenRequestBranchMissing()
     {
         var subject = CreateSubject();

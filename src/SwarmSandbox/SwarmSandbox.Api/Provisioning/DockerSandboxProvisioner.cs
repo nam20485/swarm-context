@@ -66,7 +66,31 @@ public sealed class DockerSandboxProvisioner : ISandboxProvisioner
         };
 
         var created = await _client.Containers.CreateContainerAsync(create, ct);
-        await _client.Containers.StartContainerAsync(created.ID, new ContainerStartParameters(), ct);
+        try
+        {
+            await _client.Containers.StartContainerAsync(created.ID, new ContainerStartParameters(), ct);
+        }
+        catch (Exception ex)
+        {
+            // The container exists but never became manageable: the caller only learns
+            // the identity on success, so an unstarted container would be orphaned with
+            // no API path to it. Remove it here while the id is still known.
+            _logger.LogWarning(ex, "Container {ContainerId} failed to start; removing it to avoid an orphan.", created.ID);
+            try
+            {
+                await _client.Containers.RemoveContainerAsync(
+                    created.ID,
+                    new ContainerRemoveParameters { Force = true, RemoveVolumes = true },
+                    CancellationToken.None);
+            }
+            catch (Exception removeEx)
+            {
+                _logger.LogError(removeEx, "Cleanup of unstarted container {ContainerId} failed; remove it manually.", created.ID);
+            }
+
+            throw;
+        }
+
         await TrySeedAsync(created.ID, ct);
 
         var now = DateTimeOffset.UtcNow;
