@@ -65,8 +65,10 @@ Services (`Api/Services`):
   `Running` (or `Faulted` + `SandboxProvisioningException` on failure), merges live Docker status over the
   persisted record for `GET /{id}`, and removes containers on delete.
 - `SandboxReaper` — hosted service; every tick (`ReaperOptions.ReapInterval`, default 60s, key
-  `Sandbox:ReapInterval`) it stops/removes records whose `ExpiresAt` has passed (state Running/Faulted).
-  The sandbox TTL itself lives in `SandboxOptions.DefaultTtl`; `ReaperOptions` holds only the tick interval.
+  `Sandbox:ReapInterval`) it stops/removes records whose `ExpiresAt` has passed (state
+  Creating/Running/Faulted — Creating included so rows stranded by an aborted or crashed provisioning
+  call still expire out). The sandbox TTL itself lives in `SandboxOptions.DefaultTtl`; `ReaperOptions`
+  holds only the tick interval.
 
 Data (`Api/Data`): `SandboxRecord` EF entity, `SwarmSandboxDbContext` (sandboxes only), PostgreSQL via Npgsql.
 Connection string: Aspire-injected `ConnectionStrings:postgres`, falling back to
@@ -171,6 +173,9 @@ pre-existing non-empty `/workspace` skips the clone.
   `JsonStringEnumConverter` so enum states serialize as camelCase strings (matching Web's `SandboxApiClient`).
 - `SandboxEndpoints.MapSandboxEndpoints` wires the four real endpoints listed above to `ISandboxManager`
   (the original 202/501 stubs are gone).
+- A permissive CORS default policy (`AddCors` + `UseCors`; any origin/header/method) lets the Web UI's
+  cross-origin browser requests — and the JSON-POST preflight — succeed. The API is unauthenticated and
+  cookie-less, so there are no credentials to protect; restrict to the known Web origin if auth ever lands.
 - The `ISandboxStore` seam exists so tests run without a database (`InMemorySandboxStore`); `FixedTimeProvider`
   drives deterministic reaper/manager tests.
 
