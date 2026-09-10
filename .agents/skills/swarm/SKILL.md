@@ -1,6 +1,6 @@
 ---
 name: swarm
-description: Run a goal-driven agent swarm on the ZCode harness - initialize a tracked run under .swarm/, adopt the swarm-orchestrator role, and delegate work to least-privilege swarm subagents (generic, implementer, researcher, verifier, reviewer) in a verify-each-round loop until the goal is met or the subagent budget is exhausted. With the plan argument (/swarm plan [seed idea]) it first runs the interactive swarm-plan wizard to produce an approved plan, derive the goal, initialize GH issue tracking, and then start. Trigger when the user asks to "start a swarm", "run a swarm", "swarm this goal", or invokes $swarm with a goal, a goal plus optional max-subagent budget, or the plan argument.
+description: Run a goal-driven agent swarm on the ZCode harness - initialize a tracked run under .swarm/, adopt the swarm-orchestrator role, and delegate work to least-privilege swarm subagents (generic, implementer, researcher, verifier, reviewer, analyst) in a verify-each-round loop until the goal is met or the subagent budget is exhausted. With the plan argument (/swarm plan [seed idea]) it first runs the interactive swarm-plan wizard to produce an approved plan, derive the goal, initialize GH issue tracking, and then start. Trigger when the user asks to "start a swarm", "run a swarm", "swarm this goal", or invokes $swarm with a goal, a goal plus optional max-subagent budget, or the plan argument.
 compatibility: Requires the ZCode Agent harness (subagent definitions under .zcode/agents/) and PowerShell 7+ (pwsh) on PATH.
 ---
 
@@ -16,7 +16,7 @@ Run a goal-driven swarm: you adopt the orchestrator protocol from `.zcode/agents
 
 ## Planning mode
 
-When invoked with the `plan` argument (optionally followed by a seed idea): read and run `.agents/skills/swarm-plan/SKILL.md` instead of starting immediately. It ends by re-entering this skill's Start flow below with the approved goal — do not initialize a run before that approval.
+When invoked with the `plan` argument (optionally followed by a seed idea): run the Preflight check below FIRST (the wizard commits a plan and initializes GH tracking before the run — discover a permission-mode blocker before that work, not after), then read and run `.agents/skills/swarm-plan/SKILL.md` instead of starting immediately. It ends by re-entering this skill's Preflight and Start flow below with the approved goal — do not initialize a run before that approval.
 
 ## Preflight
 

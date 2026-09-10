@@ -1,11 +1,3 @@
->Title: [ProjectName] – Complete Implementation (Application Plan)
-
->Labels: plan, design, architecture
-
->Assignees: [owner]
-
----
-
 # [ProjectName] – Complete Implementation
 
 ## Project Logistics
@@ -77,19 +69,19 @@ Each task below must carry **Context** (what exists / where), **Acceptance Crite
 
 ### Phase 2: Core Services / Core Engine
 
-#### Epic 2.1: Core Module/Service A
+#### Workstream 2.1: Core Module/Service A
 
 - [ ] 2.1. Implement core module/service A
    - [ ] 2.1.1. Sub-task A
    - [ ] 2.1.2. Sub-task B
 
-#### Epic 2.2: Core Module/Service B
+#### Workstream 2.2: Core Module/Service B
 
 - [ ] 2.2. Implement core module/service B
 
 ### Phase 3: UI/UX & Integration
 
-#### Epic 3.1: UI Foundation
+#### Workstream 3.1: UI Foundation
 
 - [ ] 3.1. UI foundation and navigation
 - [ ] 3.2. ViewModels/State management
@@ -99,7 +91,7 @@ Each task below must carry **Context** (what exists / where), **Acceptance Crite
 
 ### Phase 4: Advanced Capabilities & Security
 
-#### Epic 4.1: Tooling & Agentic Features
+#### Workstream 4.1: Tooling & Agentic Features
 
 - [ ] 4.1. Tooling/Function calling/Agentic features (if applicable)
 - [ ] 4.2. Human-in-the-loop approval and auditing
@@ -108,7 +100,7 @@ Each task below must carry **Context** (what exists / where), **Acceptance Crite
 
 ### Phase 5: Testing, Docs, Packaging & Deployment
 
-#### Epic 5.1: Testing & Quality Assurance
+#### Workstream 5.1: Testing & Quality Assurance
 
 - [ ] 5.1. Test suites (unit/integration/e2e/perf)
 - [ ] 5.2. API/Developer documentation
