@@ -127,6 +127,42 @@ public class HomeTests : BunitContext
     }
 
     [Fact]
+    public void Home_create_when_api_unreachable_shows_banner_instead_of_crashing()
+    {
+        var api = Substitute.For<ISandboxApiClient>();
+        api.ListAsync().Returns([]);
+        api.CreateAsync("development").Returns(Task.FromException<CreateSandboxResponse>(
+            new HttpRequestException("connection refused")));
+        Services.AddSingleton(api);
+
+        var cut = Render<Home>();
+        cut.WaitForElement(".create-sandbox");
+
+        cut.Find(".create-sandbox").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Sandbox API unreachable: connection refused", cut.Markup));
+    }
+
+    [Fact]
+    public async Task Home_delete_when_api_unreachable_shows_banner_instead_of_crashing()
+    {
+        var api = Substitute.For<ISandboxApiClient>();
+        api.ListAsync().Returns([Info("dev-1", SandboxState.Running, "swarmsandbox-dev-1")]);
+        api.DeleteAsync("dev-1", Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new HttpRequestException("connection refused")));
+        Services.AddSingleton(api);
+
+        var cut = Render<Home>();
+        cut.WaitForElement("tbody tr button");
+        JSInterop.Setup<bool>("confirm", _ => true).SetResult(true);
+
+        cut.Find("tbody tr button").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Sandbox API unreachable: connection refused", cut.Markup));
+        await api.Received(1).DeleteAsync("dev-1", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Home_delete_aborts_when_confirmation_is_declined()
     {
         var api = Substitute.For<ISandboxApiClient>();

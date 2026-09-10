@@ -146,6 +146,11 @@ else
             _error = ex.Message;
             StateHasChanged();
         }
+        catch (HttpRequestException ex)
+        {
+            _error = $"Sandbox API unreachable: {ex.Message}";
+            StateHasChanged();
+        }
     }
 
     private static string BadgeClass(SandboxState state) => state switch

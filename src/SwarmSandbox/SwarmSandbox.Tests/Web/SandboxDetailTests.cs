@@ -140,6 +140,25 @@ public class SandboxDetailTests : BunitContext
     }
 
     [Fact]
+    public void SandboxDetail_delete_when_api_unreachable_shows_banner_instead_of_crashing()
+    {
+        var api = Substitute.For<ISandboxApiClient>();
+        api.GetAsync("dev-1").Returns(new SandboxStatus(
+            Info("dev-1", SandboxState.Running, "swarmsandbox-dev-1"), LastError: null));
+        api.DeleteAsync("dev-1", Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new HttpRequestException("connection refused")));
+        Services.AddSingleton(api);
+
+        var cut = Render<SandboxDetail>(ps => ps.Add(p => p.Id, "dev-1"));
+        cut.WaitForElement(".btn-outline-danger");
+        JSInterop.Setup<bool>("confirm", _ => true).SetResult(true);
+
+        cut.Find(".btn-outline-danger").Click();
+
+        cut.WaitForAssertion(() => Assert.Contains("Sandbox API unreachable: connection refused", cut.Markup));
+    }
+
+    [Fact]
     public void SandboxDetail_renders_badges_for_stopping_and_default_states()
     {
         var api = Substitute.For<ISandboxApiClient>();

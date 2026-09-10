@@ -95,6 +95,10 @@ else
         {
             _error = $"Sandbox API unreachable: {ex.Message}";
         }
+
+        // The poll loop calls this outside any event handler, so Blazor never
+        // repaints on its own — a Creating -> Running transition must do it here.
+        StateHasChanged();
     }
 
     private async Task CreateSandboxAsync()
@@ -109,6 +113,10 @@ else
         catch (ApiException ex)
         {
             _error = ex.Message;
+        }
+        catch (HttpRequestException ex)
+        {
+            _error = $"Sandbox API unreachable: {ex.Message}";
         }
     }
 
@@ -127,6 +135,10 @@ else
         catch (ApiException ex)
         {
             _error = ex.Message;
+        }
+        catch (HttpRequestException ex)
+        {
+            _error = $"Sandbox API unreachable: {ex.Message}";
         }
     }
 
