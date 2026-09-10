@@ -57,6 +57,16 @@ public sealed class SandboxManager(
         }
 
         var info = ToInfo(record);
+
+        // Records that never got a container (provisioning failed or is still in
+        // flight) have no Docker identity to inspect: querying with the record id
+        // would 404 and the not-found answer would overwrite the persisted Faulted
+        // state and its error with Docker's "No such container" noise.
+        if (string.IsNullOrEmpty(record.ContainerName) && string.IsNullOrEmpty(record.ContainerId))
+        {
+            return new SandboxStatus(info, record.LastError);
+        }
+
         SandboxStatus? live = null;
         try
         {
@@ -74,7 +84,8 @@ public sealed class SandboxManager(
                 State = liveInfo.State,
                 ContainerId = OrDefault(liveInfo.ContainerId, info.ContainerId),
                 ContainerName = OrDefault(liveInfo.ContainerName, info.ContainerName),
-                ExpiresAt = liveInfo.ExpiresAt ?? info.ExpiresAt,
+                // The persisted expiry is what the reaper enforces; the live value only fills a gap.
+                ExpiresAt = info.ExpiresAt ?? liveInfo.ExpiresAt,
             };
         }
 

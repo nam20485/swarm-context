@@ -85,6 +85,52 @@ public class SandboxManagerTests
     }
 
     [Fact]
+    public async Task GetStatusKeepsPersistedFaultedStateWhenRecordHasNoContainer()
+    {
+        _store.Seed(new SandboxRecord
+        {
+            Id = "sbx-f",
+            ContainerId = "",
+            ContainerName = "",
+            State = SandboxState.Faulted,
+            Branch = SandboxRequest.DefaultBranch,
+            CreatedAt = Now,
+            ExpiresAt = Now.AddMinutes(30),
+            LastError = "docker daemon unreachable",
+        });
+
+        var status = await _manager.GetStatusAsync("sbx-f", CancellationToken.None);
+
+        // No container identity: the provisioner must not be asked (inspecting the
+        // record id would 404 and hide the persisted Faulted state and LastError).
+        await _provisioner.DidNotReceiveWithAnyArgs().GetStatusAsync(default!, default);
+        Assert.NotNull(status);
+        Assert.Equal(SandboxState.Faulted, status.Info.State);
+        Assert.Equal("docker daemon unreachable", status.LastError);
+    }
+
+    [Fact]
+    public async Task GetStatusKeepsPersistedCreatingStateWithoutProvisionerQuery()
+    {
+        _store.Seed(new SandboxRecord
+        {
+            Id = "sbx-c",
+            ContainerId = "",
+            ContainerName = "",
+            State = SandboxState.Creating,
+            Branch = SandboxRequest.DefaultBranch,
+            CreatedAt = Now,
+            ExpiresAt = Now.AddMinutes(30),
+        });
+
+        var status = await _manager.GetStatusAsync("sbx-c", CancellationToken.None);
+
+        await _provisioner.DidNotReceiveWithAnyArgs().GetStatusAsync(default!, default);
+        Assert.NotNull(status);
+        Assert.Equal(SandboxState.Creating, status.Info.State);
+    }
+
+    [Fact]
     public async Task GetStatusMergesLiveProvisionerStatusWithRecord()
     {
         _store.Seed(SeedRecord("sbx1", SandboxState.Running, expiresAt: Now.AddMinutes(30)));
@@ -106,6 +152,21 @@ public class SandboxManagerTests
         Assert.Equal("live-name", status.Info.ContainerName);
         Assert.Equal(Now.AddMinutes(30), status.Info.ExpiresAt);
         Assert.Equal("container exited", status.LastError);
+    }
+
+    [Fact]
+    public async Task GetStatusFillsMissingRecordExpiryFromLiveStatus()
+    {
+        _store.Seed(SeedRecord("sbx1", SandboxState.Running, expiresAt: null));
+        _provisioner
+            .GetStatusAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(new SandboxStatus(
+                new SandboxInfo("sbx1", "live-cid", SandboxState.Running, Now, Now.AddHours(1), "live-name"),
+                null));
+
+        var status = await _manager.GetStatusAsync("sbx1", CancellationToken.None);
+
+        Assert.Equal(Now.AddHours(1), status!.Info.ExpiresAt);
     }
 
     [Fact]
