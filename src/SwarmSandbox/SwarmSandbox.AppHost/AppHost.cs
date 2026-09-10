@@ -1,7 +1,8 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-// Parameters (defaults live in appsettings.json under "Parameters"; git-token is secret, supply
-// via user secrets / Parameters__gitToken).
+// Parameters (defaults live in appsettings.json under "Parameters"). gitToken defaults to ""
+// there — the repo clones publicly without it; supply a real token via user secrets /
+// Parameters__gitToken only for private-repo use.
 var dockerHost = builder.AddParameter("dockerHost");
 var imageName = builder.AddParameter("imageName");
 var seedSourcePath = builder.AddParameter("seedSourcePath");
