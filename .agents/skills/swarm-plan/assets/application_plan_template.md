@@ -1,19 +1,23 @@
 # [ProjectName] – Complete Implementation
 
-> **Superseded for `plan_docs/` writes:** the canonical, maintained copy of this template is
-> [`.agents/skills/swarm-plan/assets/application_plan_template.md`](../../.agents/skills/swarm-plan/assets/application_plan_template.md)
-> — the `swarm-plan` wizard writes from it. This copy remains as a historical reference only.
+## Project Logistics
+- **Slug:** [project-slug]
+- **Name:** [ProjectName]
+- **Repo:** [owner/project-slug]
+- **Target branch:** [dev/[project-slug]]
+- **Plan path:** plan_docs/application_plan.md
 
 ## Overview
-Provide a concise summary of the application, the problem it solves, the desired outcomes, and links to the filled-out template (docs/ai-new-app-template.md) and any supporting docs.
+Provide a concise summary of the application, the problem it solves, and the desired outcomes.
 
 ## Goals
 - [Goal 1]
 - [Goal 2]
 
 ## Technology Stack
-- Language: [e.g., C# .NET 9.0]
-- UI Framework: [e.g., Avalonia/Blazor/etc.]
+- Stack profile: [app-stacks slug adopted, or "custom"]
+- Language: [e.g., C# .NET 10 / Python 3.13]
+- UI Framework: [e.g., Blazor WASM / Avalonia / Vite+React]
 - AI/Runtime: [e.g., ONNX Runtime / Azure OpenAI / etc.]
 - Architecture: [e.g., RAG / MCP / Microservices]
 - Databases/Storage: [e.g., Neo4j / SQLite / Postgres / Vector DB]
@@ -54,6 +58,8 @@ Provide a concise summary of the application, the problem it solves, the desired
 
 ## Implementation Plan
 
+Each task below must carry **Context** (what exists / where), **Acceptance Criteria** (observable), and **Validation** (the command or check that proves it) — the GH issue hierarchy and every swarm task input are derived from these.
+
 ### Phase 1: Foundation & Setup
 - [ ] 1.1. Repository and solution bootstrap
 - [ ] 1.2. Core dependencies and configuration
@@ -63,19 +69,19 @@ Provide a concise summary of the application, the problem it solves, the desired
 
 ### Phase 2: Core Services / Core Engine
 
-#### Epic 2.1: Core Module/Service A
+#### Workstream 2.1: Core Module/Service A
 
 - [ ] 2.1. Implement core module/service A
    - [ ] 2.1.1. Sub-task A
    - [ ] 2.1.2. Sub-task B
 
-#### Epic 2.2: Core Module/Service B
+#### Workstream 2.2: Core Module/Service B
 
 - [ ] 2.2. Implement core module/service B
 
 ### Phase 3: UI/UX & Integration
 
-#### Epic 3.1: UI Foundation
+#### Workstream 3.1: UI Foundation
 
 - [ ] 3.1. UI foundation and navigation
 - [ ] 3.2. ViewModels/State management
@@ -85,7 +91,7 @@ Provide a concise summary of the application, the problem it solves, the desired
 
 ### Phase 4: Advanced Capabilities & Security
 
-#### Epic 4.1: Tooling & Agentic Features
+#### Workstream 4.1: Tooling & Agentic Features
 
 - [ ] 4.1. Tooling/Function calling/Agentic features (if applicable)
 - [ ] 4.2. Human-in-the-loop approval and auditing
@@ -94,7 +100,7 @@ Provide a concise summary of the application, the problem it solves, the desired
 
 ### Phase 5: Testing, Docs, Packaging & Deployment
 
-#### Epic 5.1: Testing & Quality Assurance
+#### Workstream 5.1: Testing & Quality Assurance
 
 - [ ] 5.1. Test suites (unit/integration/e2e/perf)
 - [ ] 5.2. API/Developer documentation
@@ -107,7 +113,7 @@ Provide a concise summary of the application, the problem it solves, the desired
 ## Mandatory Requirements Implementation
 
 ### Testing & Quality Assurance
-- [ ] Unit tests — coverage target: [e.g., 80%+]
+- [ ] Unit tests — coverage target: [e.g., 85%+]
 - [ ] Integration tests
 - [ ] E2E tests
 - [ ] Performance/load tests
@@ -127,7 +133,6 @@ Provide a concise summary of the application, the problem it solves, the desired
 - [ ] Release pipeline
 
 ### Infrastructure & DevOps
-
 - [ ] CI/CD workflows (build/test/scan/publish) *(Note: All GitHub Actions must be pinned by SHA)*
 - [ ] Static analysis and security scanning
 - [ ] Performance benchmarking/monitoring
@@ -163,7 +168,7 @@ Provide a concise summary of the application, the problem it solves, the desired
 - [Metric 3]
 
 ## Repository Branch
-Target branch for implementation: [e.g., copilot/[project-slug]]
+See **Project Logistics** (target branch) above.
 
 ## Implementation Notes
 Key assumptions, adaptations, and references to technical docs or ADRs.

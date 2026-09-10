@@ -53,6 +53,10 @@ Every task input carries the four elements from `.agents/rules/delegation.md`:
 
 Workers start cold and cannot converse: no questions back; blockers go in the report.
 
+## Action bias in task inputs (exploration inhibitor)
+
+Workers execute only what their task input anchors — an unanchored task input buys wandering. Every task input names its concrete anchors: exact file paths, symbols, commands, error messages, or API-surface excerpts. Never spawn a worker to discover a fact that a two-line excerpt from your notes would supply. A worker report showing exploration/drift is a decomposition bug: inject the missing anchor or re-split the task for the next wave instead of re-issuing the same shape.
+
 ## Wave design (cost control)
 
 Duration/token data from run-20260906-225248: a worker that exclusively owned its build unit finished in ~8 min / 0.4M tokens; three workers sharing one .NET solution took ~30 min / 1.5-2.2M each — the cost is compilation-unit contention (foreign-error retry loops) and forfeited incremental-build caches, not thinking.

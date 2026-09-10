@@ -40,6 +40,17 @@ Before implementing, apply these checks:
 - Do not make or report assertions without specific details, i.e. line numbers, files, log messages, etc., to back up your claims.
 - Do not determine or start implementing a solution until you have decisively found the root cause.
 
+### Exploration discipline (act from anchors)
+
+Pattern validated by the VS Code GPT-5.5 prompt experiment (July 2026: −8.5% tool calls, −9.3% p95 time-to-first-edit, −7.6% p95 tokens, quality neutral; `code.visualstudio.com/blogs/2026/07/06/optimizing-vscode-coding-harness-model-providers`): wandering before acting costs time and tokens without buying quality.
+
+- Start from the most concrete anchor available — the file, symbol, failing behavior, failing command, or nearby implementation the request names. If none is named, use one targeted search or nearby read to find the anchor, then continue locally from there.
+- Before the first change, gather only enough evidence to state one falsifiable local hypothesis and the cheapest check that could disconfirm it.
+- Once the hypothesis, its nearby code path, and a cheap discriminating check are visible, the next action is the change itself — not more reading. A small reversible probe is a legitimate first change when confidence is incomplete.
+- Searching past ~5 discovery calls with no hypothesis is drift: recover by choosing the best current hypothesis, acting on it, and reporting the gap.
+- Validate in this order of preference: the cheapest behavior-scoped failing check, a narrow test of the touched slice, a narrow compile/lint/typecheck of the touched slice. Finish with at least one post-change executable validation when the environment provides one.
+- Do not re-read unchanged context unless a new result makes it relevant.
+
 ## Handling Command Failures
 
 When a CLI command fails, before retrying:

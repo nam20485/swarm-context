@@ -35,7 +35,7 @@ and are never committed to the repository.
 | `AGENTS.md` | Operating manual for AI agents (coding guidelines, validation, source control) |
 | `.agents/memory.md` | Durable project context: current activity, completed work, decisions |
 | `.agents/rules/` | Coding conventions, tool usage, validation, and practices (one file per subject) |
-| `.agents/skills/` | Agent Skills (currently `gh-issue-tracking-init`) |
+| `.agents/skills/` | Agent Skills (`swarm` goal-loop swarm, `swarm-plan` interactive planning frontend, `gh-issue-tracking-init`, `update-powershell-standard`) |
 | `docs/` | Reference documentation and plans |
 | `scripts/` | GitHub CLI helpers: auth, label sync, PR review-thread management, index refresh |
 | `src/SwarmSandbox/` | Aspire + Docker sandbox-provisioning service (5 .NET 10 projects + sandbox image definition); see [`src/SwarmSandbox/ARCHITECTURE.md`](src/SwarmSandbox/ARCHITECTURE.md) |
