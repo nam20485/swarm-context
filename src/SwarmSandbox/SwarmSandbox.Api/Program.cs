@@ -19,6 +19,14 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ProvisioningExceptionHandler>();
 
+// The Web UI is a standalone Blazor WASM app on its own origin, so its browser
+// requests to this API are cross-origin (and the JSON POST needs a preflight).
+// The API is unauthenticated and cookie-less — no credentials to protect — so a
+// permissive origin policy is the Simplicity First choice (restrict to the known
+// Web origin when this ever grows authentication).
+builder.Services.AddCors(options =>
+    options.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
+
 // Sandbox configuration (SANDBOX__* environment variables passed by the AppHost).
 builder.Services.Configure<SandboxOptions>(builder.Configuration.GetSection(SandboxOptions.SectionName));
 builder.Services.Configure<ReaperOptions>(builder.Configuration.GetSection("Sandbox"));
@@ -43,6 +51,7 @@ builder.Services.AddHostedService<SandboxReaper>();
 var app = builder.Build();
 
 app.UseExceptionHandler();
+app.UseCors();
 
 // Dev-grade schema bootstrap (Simplicity First): create the database and schema on
 // startup so a first run against a fresh Postgres does not 500 on every request.

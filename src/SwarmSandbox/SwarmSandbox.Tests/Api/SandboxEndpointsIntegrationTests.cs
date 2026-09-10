@@ -154,6 +154,32 @@ public class SandboxEndpointsIntegrationTests
         Assert.Equal(SandboxState.Faulted, record.State);
     }
 
+    [Fact]
+    public async Task Cross_origin_requests_from_the_wasm_ui_are_allowed_by_cors()
+    {
+        var store = new InMemorySandboxStore();
+        var provisioner = Substitute.For<ISandboxProvisioner>();
+        using var factory = CreateFactory(store, provisioner);
+        var client = factory.CreateClient();
+
+        // The Web UI runs on its own origin; its JSON POST needs a successful preflight.
+        using var preflight = new HttpRequestMessage(HttpMethod.Options, "/api/sandboxes");
+        preflight.Headers.Add("Origin", "http://localhost:5092");
+        preflight.Headers.Add("Access-Control-Request-Method", "POST");
+        preflight.Headers.Add("Access-Control-Request-Headers", "content-type");
+        var preflightResponse = await client.SendAsync(preflight);
+
+        Assert.Equal(HttpStatusCode.NoContent, preflightResponse.StatusCode);
+        Assert.Equal("*", preflightResponse.Headers.GetValues("Access-Control-Allow-Origin").Single());
+
+        using var list = new HttpRequestMessage(HttpMethod.Get, "/api/sandboxes");
+        list.Headers.Add("Origin", "http://localhost:5092");
+        var listResponse = await client.SendAsync(list);
+
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        Assert.Equal("*", listResponse.Headers.GetValues("Access-Control-Allow-Origin").Single());
+    }
+
     private static WebApplicationFactory<Program> CreateFactory(
         InMemorySandboxStore store, ISandboxProvisioner provisioner) =>
         new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
