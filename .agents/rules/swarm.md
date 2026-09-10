@@ -1,6 +1,6 @@
 # Swarm
 
-Rules for the goal-driven agent swarm on the ZCode harness — entry point is the `swarm` skill (`$swarm`), operating protocol is `.zcode/agents/swarm-orchestrator.md`.
+Rules for the goal-driven agent swarm on the ZCode harness — entry point is the `swarm` skill (`$swarm`), operating protocol is `.zcode/agents/swarm-orchestrator.md`. The optional interactive frontend is the `swarm-plan` skill (`/swarm plan`): it interrogates an app/feature idea into an approved `plan_docs/application_plan.md`, derives the goal(s) for approval, initializes the GH issue-tracking hierarchy via `gh-issue-tracking-init`, then starts the swarm (see [`.agents/skills/swarm-plan/SKILL.md`](../skills/swarm-plan/SKILL.md)).
 
 ## Topology
 

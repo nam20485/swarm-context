@@ -1,6 +1,6 @@
 ---
 name: swarm
-description: Run a goal-driven agent swarm on the ZCode harness - initialize a tracked run under .swarm/, adopt the swarm-orchestrator role, and delegate work to least-privilege swarm subagents (generic, implementer, researcher, verifier, reviewer) in a verify-each-round loop until the goal is met or the subagent budget is exhausted. Trigger when the user asks to "start a swarm", "run a swarm", "swarm this goal", or invokes $swarm with a goal and optional max-subagent budget.
+description: Run a goal-driven agent swarm on the ZCode harness - initialize a tracked run under .swarm/, adopt the swarm-orchestrator role, and delegate work to least-privilege swarm subagents (generic, implementer, researcher, verifier, reviewer) in a verify-each-round loop until the goal is met or the subagent budget is exhausted. With the plan argument (/swarm plan [seed idea]) it first runs the interactive swarm-plan wizard to produce an approved plan, derive the goal, initialize GH issue tracking, and then start. Trigger when the user asks to "start a swarm", "run a swarm", "swarm this goal", or invokes $swarm with a goal, a goal plus optional max-subagent budget, or the plan argument.
 compatibility: Requires the ZCode Agent harness (subagent definitions under .zcode/agents/) and PowerShell 7+ (pwsh) on PATH.
 ---
 
@@ -10,8 +10,13 @@ Run a goal-driven swarm: you adopt the orchestrator protocol from `.zcode/agents
 
 ## Inputs
 
-- `goal` (required) — the loop invariant. It must be specific and checkable. If the user's goal lacks an observable success criterion, restate it as one before starting and proceed — don't interrogate the user.
+- `plan` (optional, first argument) — planning mode: run the interactive wizard in [`.agents/skills/swarm-plan/SKILL.md`](../swarm-plan/SKILL.md) first. The wizard interrogates the idea into an approved `plan_docs/application_plan.md`, derives the swarm goal(s) for approval, initializes the GH issue-tracking hierarchy, and returns here to start the run with the approved goal. Requires an interactive session.
+- `goal` (required for direct runs) — the loop invariant. It must be specific and checkable. If the user's goal lacks an observable success criterion, restate it as one before starting and proceed — don't interrogate the user.
 - `maxSubagents` (optional, default 50) — total worker spawns for the whole run.
+
+## Planning mode
+
+When invoked with the `plan` argument (optionally followed by a seed idea): read and run `.agents/skills/swarm-plan/SKILL.md` instead of starting immediately. It ends by re-entering this skill's Start flow below with the approved goal — do not initialize a run before that approval.
 
 ## Preflight
 
