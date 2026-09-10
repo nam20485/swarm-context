@@ -1,12 +1,8 @@
->Title: [ProjectName] – Complete Implementation (Application Plan)
-
->Labels: plan, design, architecture
-
->Assignees: [owner]
-
----
-
 # [ProjectName] – Complete Implementation
+
+> **Superseded for `plan_docs/` writes:** the canonical, maintained copy of this template is
+> [`.agents/skills/swarm-plan/assets/application_plan_template.md`](../../.agents/skills/swarm-plan/assets/application_plan_template.md)
+> — the `swarm-plan` wizard writes from it. This copy remains as a historical reference only.
 
 ## Overview
 Provide a concise summary of the application, the problem it solves, the desired outcomes, and links to the filled-out template (docs/ai-new-app-template.md) and any supporting docs.

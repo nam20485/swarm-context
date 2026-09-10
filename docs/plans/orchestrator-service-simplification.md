@@ -37,7 +37,7 @@ after `/gh-issue-tracking-init` builds the hierarchy — exactly the gap the swa
 
 ## 3. Target architecture
 
-```
+```text
 GH App webhook ──► webhook listener (FastAPI, unchanged contract)
                       │ constructs PromptInfo
                       ▼
@@ -75,14 +75,14 @@ streams progress to the dashboard, and collects the result. Client selection is 
 (“any pre-configured ACP client”): opencode on this host today; kilo code CLI / qwen code / zcode
 when they ship ACP agent support.
 
-*(ACP protocol specifics, launch commands, and per-client readiness: see §6 — research pending.)*
+*(ACP protocol specifics, launch commands, and per-client readiness: see §6.)*
 
 ### 3.3 Agent orchestration prompt
 
 Replace `orchestration_prompt.jinja2.md`'s rigid clause table with an open-ended prompt carrying
 the workflow as pseudo-code / natural language (the owner's direction), e.g.:
 
-```
+```text
 on PromptInfo p:
   if p is new-app:      plan (swarm-plan wizard or autonomous variant) → gh-issue-tracking-init → swarm
   elif p is feature:    plan against existing tracking → swarm
@@ -93,6 +93,13 @@ on PromptInfo p:
 Clauses no longer encode "which label applies next" — the agent decides from the tracking state
 (issues/labels queried via `gh`), which also removes the webhook-echo state cycle as the only
 progression mechanism. GitHub-side notifications stay (comments, labels, PRs).
+
+**Reuse from this repo** (owner direction, 2026-09-10): the majority of the swarm-plan
+implementation is co-optable for the host's plan-app avenue — the wizard steps, the
+`plan_docs/application_plan.md` output contract (which `gh-issue-tracking-init` already
+consumes), and the goal-derivation gate become the planning prompt the ACP agent runs for
+paths (a)/(b); an autonomous variant of the wizard (defaults chosen instead of asked) feeds
+directly off PromptInfo payloads, keeping the interactive form for human-initiated runs.
 
 ## 4. Gap analysis (delta from today)
 
