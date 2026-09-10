@@ -1,0 +1,197 @@
+@page "/"
+@using SwarmSandbox.Web.Models
+@using SwarmSandbox.Web.Services
+@implements IDisposable
+@inject ISandboxApiClient Api
+@inject IJSRuntime Js
+@inject NavigationManager Navigation
+
+<PageTitle>Sandboxes</PageTitle>
+
+<h1>Sandboxes</h1>
+<p class="text-muted">Docker workspaces cloned from the repo, ready for ZCode desktop remote development.</p>
+
+@if (_error is not null)
+{
+    <div class="alert alert-danger" role="alert">
+        @_error
+        <button type="button" class="btn-close float-end" aria-label="Dismiss" @onclick="() => _error = null"></button>
+    </div>
+}
+
+@if (_sandboxes is null)
+{
+    <p><em>Loading...</em></p>
+}
+else if (_sandboxes.Count == 0)
+{
+    <p><em>No sandboxes yet. Create one below.</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Id</th>
+                <th>State</th>
+                <th>Created</th>
+                <th>Expires</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var sandbox in _sandboxes)
+            {
+                <tr>
+                    <td>@sandbox.ContainerName</td>
+                    <td>@sandbox.Id</td>
+                    <td><span class="badge @BadgeClass(sandbox.State)">@sandbox.State</span></td>
+                    <td>@sandbox.CreatedAt</td>
+                    <td>@(sandbox.ExpiresAt?.ToString() ?? "-")</td>
+                    <td>
+                        <NavLink class="btn btn-sm btn-outline-primary" href="@($"sandbox/{sandbox.Id}")">View</NavLink>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteSandboxAsync(sandbox.Id)">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<h3>Create sandbox</h3>
+<div class="mb-3">
+    <label class="form-label" for="create-branch">Branch</label>
+    <input id="create-branch" class="form-control create-branch" style="max-width: 24rem" @bind="_branch" />
+</div>
+<button class="btn btn-primary create-sandbox" @onclick="CreateSandboxAsync">Create</button>
+
+@code {
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
+
+    private List<SandboxInfo>? _sandboxes;
+    private string _branch = "development";
+    private string? _error;
+    private CancellationTokenSource? _pollCts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+        StartPollingWhileCreating();
+    }
+
+    private async Task RefreshAsync()
+    {
+        try
+        {
+            _sandboxes = await Api.ListAsync();
+            _error = null;
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        catch (HttpRequestException ex)
+        {
+            _error = $"Sandbox API unreachable: {ex.Message}";
+        }
+
+        // The poll loop calls this outside any event handler, so Blazor never
+        // repaints on its own — a Creating -> Running transition must do it here.
+        StateHasChanged();
+    }
+
+    private async Task CreateSandboxAsync()
+    {
+        try
+        {
+            await Api.CreateAsync(_branch);
+            _branch = "development";
+            await RefreshAsync();
+            StartPollingWhileCreating();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        catch (HttpRequestException ex)
+        {
+            _error = $"Sandbox API unreachable: {ex.Message}";
+        }
+    }
+
+    private async Task DeleteSandboxAsync(string id)
+    {
+        if (!await Js.InvokeAsync<bool>("confirm", $"Delete sandbox '{id}'?"))
+        {
+            return;
+        }
+
+        try
+        {
+            await Api.DeleteAsync(id);
+            await RefreshAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        catch (HttpRequestException ex)
+        {
+            _error = $"Sandbox API unreachable: {ex.Message}";
+        }
+    }
+
+    // Poll only while something is still being provisioned.
+    private void StartPollingWhileCreating()
+    {
+        if (_pollCts is not null || _sandboxes is null || !_sandboxes.Exists(s => s.State == SandboxState.Creating))
+        {
+            return;
+        }
+
+        _pollCts = new CancellationTokenSource();
+        _ = PollWhileCreatingAsync(_pollCts, _pollCts.Token);
+    }
+
+    private async Task PollWhileCreatingAsync(CancellationTokenSource cts, CancellationToken ct)
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(PollInterval);
+            while (await timer.WaitForNextTickAsync(ct))
+            {
+                await RefreshAsync();
+                if (_sandboxes is null || !_sandboxes.Exists(s => s.State == SandboxState.Creating))
+                {
+                    break;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Page disposed or polling done.
+        }
+
+        if (ReferenceEquals(_pollCts, cts))
+        {
+            _pollCts = null;
+        }
+    }
+
+    private static string BadgeClass(SandboxState state) => state switch
+    {
+        SandboxState.Running => "text-bg-success",
+        SandboxState.Creating => "text-bg-info",
+        SandboxState.Stopping => "text-bg-warning",
+        SandboxState.Faulted => "text-bg-danger",
+        _ => "text-bg-secondary"
+    };
+
+    public void Dispose()
+    {
+        _pollCts?.Cancel();
+        _pollCts?.Dispose();
+        _pollCts = null;
+    }
+}

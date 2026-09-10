@@ -53,3 +53,6 @@ desktop.ini
 .zcode/*
 !.zcode/agents/
 !.zcode/config.example.json
+
+# .NET test results (validation.ps1 -Step dotnet writes TestResults/)
+TestResults/

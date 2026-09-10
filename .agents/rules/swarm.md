@@ -17,13 +17,18 @@ The primary session acts as the orchestrator and spawns worker subagents through
 
 | Name | Tools | Use for |
 |---|---|---|
-| `swarm-agent` | Read, Grep, Glob, TodoWrite | default / read-only analysis (template to extend) |
-| `swarm-implementer` | Read, Grep, Glob, TodoWrite, Edit, Write, Bash | any file edit or build |
+| `swarm-agent` | Read, Grep, Glob | default / read-only analysis (template to extend) |
+| `swarm-implementer` | Read, Grep, Glob, Edit, Write, Bash | any file edit or build |
 | `swarm-researcher` | Read, Grep, Glob, WebFetch, WebSearch, Z.AI MCP (`web-reader`, `web-search-prime`, `zread`) | web / docs research |
 | `swarm-verifier` | Read, Grep, Glob, Bash | run verification commands for evidence |
 | `swarm-reviewer` | Read, Grep, Glob, Bash | diff / quality review |
+| `swarm-analyst` | Read, Grep, Glob, Bash | post-wave telemetry: parses subagent session logs, appends metrics to `docs/swarm-metrics.md`, reports ranked anomalies |
 
-Cap: ≤5 dedicated types. All definitions set `injectAgentsMd: false` — workers get their conventions from `.agents/rules/swarm-workers.md` plus the task's Constraints element, not from the primary session's AGENTS.md (whose mandates reference tools they lack).
+No hard type cap (the old ≤5 rule was dropped by user direction, 2026-09-06): every type must be narrowly single-purpose with the smallest sufficient toolset — the narrower the definition, the more focused the worker. All definitions set `injectAgentsMd: false` — workers get their conventions from `.agents/rules/swarm-workers.md` plus the task's Constraints element, not from the primary session's AGENTS.md (whose mandates reference tools they lack). All worker definitions set `model: GLM-5.3-Flash` + `thoughtLevel: off` — extended thinking at the worker level was measured as a cost driver (32K thinking budget + `effort: max` on every request); reasoning belongs at the orchestrator level, worker tasks must be straightforward directions.
+
+## Post-wave analysis
+
+After each wave's workers report, spawn one `swarm-analyst` for the whole wave (never one per agent — cross-referencing sessions is the point). It parses `~/.zcode/cli/agents/<sess>/<agent>/metadata.json` + `~/.zcode/cli/rollout/model-io-sess_subagent_<agent>.jsonl`, appends metrics rows and anomalies to [`docs/swarm-metrics.md`](../../docs/swarm-metrics.md) (the only file it writes), and returns ranked anomalies with one-line fixes. The orchestrator reads that report before composing the next wave — anomalies feed decomposition (contention → re-split by build unit; duplicate discovery → inject excerpts; wasted calls → narrow toolset or tighten Done-when).
 
 ## MCP servers
 

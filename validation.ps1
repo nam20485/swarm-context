@@ -16,19 +16,26 @@
 .PARAMETER SkipHtml
     Skip HTML coverage report generation.
 
+.PARAMETER SkipDotnet
+    Skip the .NET branch (SwarmSandbox solution build/test/coverage) for
+    environments without the .NET SDK. The Pester flow is unaffected.
+
 .EXAMPLE
     ./validation.ps1
     ./validation.ps1 -Step test
+    ./validation.ps1 -Step dotnet
     ./validation.ps1 -CoverageThreshold 90 -SkipHtml
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('build', 'scan', 'test', 'all')]
+    [ValidateSet('build', 'scan', 'test', 'dotnet', 'all')]
     [string]$Step = 'all',
 
     [int]$CoverageThreshold = 85,
 
-    [switch]$SkipHtml
+    [switch]$SkipHtml,
+
+    [switch]$SkipDotnet
 )
 
 $ErrorActionPreference = 'Stop'
@@ -37,6 +44,12 @@ $repoRoot = $PSScriptRoot
 $dotnetToolsPath = Join-Path $HOME '.dotnet' 'tools'
 if (($env:PATH -notlike "*$dotnetToolsPath*") -and (Test-Path $dotnetToolsPath)) {
     $env:PATH = "$dotnetToolsPath$([IO.Path]::PathSeparator)$env:PATH"
+}
+
+# Repo convention: markdownlint/gitleaks/actionlint/reportgenerator live in ~/.local/bin.
+$localBinPath = Join-Path $HOME '.local' 'bin'
+if (($env:PATH -notlike "*$localBinPath*") -and (Test-Path $localBinPath)) {
+    $env:PATH = "$localBinPath$([IO.Path]::PathSeparator)$env:PATH"
 }
 
 function Install-RequiredModule {
@@ -199,13 +212,107 @@ function Step-Test {
     Write-Host "Test passed." -ForegroundColor Green
 }
 
+function Ensure-ReportGenerator {
+    # Same 5.5.10 pin as the Pester HTML step (ci-cd.md: strict version pinning).
+    $rgInstalled = (dotnet tool list -g 2>$null) -match 'dotnet-reportgenerator-globaltool'
+    if (-not $rgInstalled) {
+        Write-Host "Installing ReportGenerator..." -ForegroundColor Gray
+        dotnet tool install --global dotnet-reportgenerator-globaltool --version 5.5.10
+        if ($LASTEXITCODE -ne 0) { throw "Failed to install ReportGenerator" }
+    }
+}
+
+function Step-Dotnet {
+    if ($SkipDotnet) {
+        Write-Host "`n=== DOTNET (skipped by -SkipDotnet) ===" -ForegroundColor Yellow
+        return
+    }
+
+    if (-not (Test-CommandAvailable 'dotnet')) {
+        throw ".NET SDK not found. Install the .NET 10 SDK, or run validation.ps1 with -SkipDotnet."
+    }
+
+    Write-Host "`n=== DOTNET (SwarmSandbox build/test/coverage) ===" -ForegroundColor Cyan
+
+    $sln = Join-Path $repoRoot 'src/SwarmSandbox/SwarmSandbox.sln'
+    if (-not (Test-Path $sln)) { throw "Solution not found: $sln" }
+    $resultsDir = Join-Path $repoRoot 'TestResults/dotnet'
+    if (Test-Path $resultsDir) { Remove-Item -Recurse -Force $resultsDir }
+
+    Write-Host "Building SwarmSandbox solution..." -ForegroundColor Gray
+    & dotnet build $sln
+    if ($LASTEXITCODE -ne 0) { throw "dotnet build failed with exit code $LASTEXITCODE" }
+
+    Write-Host "Running SwarmSandbox tests with XPlat Code Coverage..." -ForegroundColor Gray
+    & dotnet test $sln --no-build --collect:"XPlat Code Coverage" --results-directory $resultsDir
+    if ($LASTEXITCODE -ne 0) { throw "dotnet test failed with exit code $LASTEXITCODE" }
+
+    $coverageFiles = @(Get-ChildItem $resultsDir -Filter 'coverage.cobertura.xml' -Recurse)
+    if ($coverageFiles.Count -eq 0) { throw "No coverage.cobertura.xml produced under $resultsDir" }
+
+    # Aggregate line coverage over the SwarmSandbox product assemblies; exclude
+    # the Tests assembly itself (nothing else is excluded).
+    $totalCovered = 0
+    $totalValid = 0
+    $perAssembly = foreach ($file in $coverageFiles) {
+        $doc = [xml](Get-Content $file.FullName -Raw)
+        $productPackages = @($doc.coverage.packages.package | Where-Object { $_.name -notmatch 'Tests$' })
+        foreach ($pkg in $productPackages) {
+            $lines = @($pkg.SelectNodes('.//line'))
+            $valid = $lines.Count
+            $hit = @($lines | Where-Object { [int]$_.hits -gt 0 }).Count
+            $totalValid += $valid
+            $totalCovered += $hit
+            [pscustomobject]@{
+                Assembly = $pkg.name
+                Covered  = $hit
+                Valid    = $valid
+                Percent  = if ($valid -gt 0) { [math]::Round(100 * $hit / $valid, 2) } else { 0 }
+            }
+        }
+    }
+
+    if ($totalValid -eq 0) { throw "Cobertura report(s) contained no instrumented lines" }
+    $coveragePercent = [math]::Round(100 * $totalCovered / $totalValid, 2)
+    $color = if ($coveragePercent -ge $CoverageThreshold) { 'Green' } else { 'Red' }
+    Write-Host "SwarmSandbox coverage: $coveragePercent% ($totalCovered/$totalValid lines)" -ForegroundColor $color
+    foreach ($entry in $perAssembly) {
+        Write-Host "  $($entry.Assembly): $($entry.Percent)% ($($entry.Covered)/$($entry.Valid) lines)"
+    }
+
+    if (-not $SkipHtml) {
+        # Merge the cobertura into the existing coverage-html/ output alongside
+        # the Pester JaCoCo report (if it exists), reusing the 5.5.10 pin.
+        Ensure-ReportGenerator
+        $htmlDir = Join-Path $repoRoot 'coverage-html'
+        $reports = @()
+        $pesterCoverage = Join-Path $repoRoot 'coverage.xml'
+        if (Test-Path $pesterCoverage) { $reports += $pesterCoverage }
+        $reports += @($coverageFiles | ForEach-Object { $_.FullName })
+        & reportgenerator "-reports:$($reports -join ';')" "-targetdir:$htmlDir" "-reporttypes:Html"
+        if ($LASTEXITCODE -ne 0) { throw "ReportGenerator failed with exit code $LASTEXITCODE" }
+        Write-Host "Merged HTML coverage report generated at coverage-html/" -ForegroundColor Green
+    }
+
+    # Gate runs after the HTML merge so coverage-html/ exists even on failure.
+    if ($coveragePercent -lt $CoverageThreshold) {
+        $breakdown = ($perAssembly | ForEach-Object {
+            "  $($_.Assembly): $($_.Covered)/$($_.Valid) lines ($($_.Percent)%)"
+        }) -join "`n"
+        throw "SwarmSandbox coverage $coveragePercent% is below threshold $CoverageThreshold%. Per assembly:`n$breakdown"
+    }
+
+    Write-Host "Dotnet passed." -ForegroundColor Green
+}
+
 Set-Location $repoRoot
 
 switch ($Step) {
-    'build' { Step-Build }
-    'scan'  { Step-Scan }
-    'test'  { Step-Test }
-    'all'   { Step-Build; Step-Scan; Step-Test }
+    'build'  { Step-Build }
+    'scan'   { Step-Scan }
+    'test'   { Step-Test }
+    'dotnet' { Step-Dotnet }
+    'all'    { Step-Build; Step-Scan; Step-Test; Step-Dotnet }
 }
 
 Write-Host "`nAll validation steps passed." -ForegroundColor Green

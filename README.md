@@ -38,6 +38,7 @@ and are never committed to the repository.
 | `.agents/skills/` | Agent Skills (currently `gh-issue-tracking-init`) |
 | `docs/` | Reference documentation and plans |
 | `scripts/` | GitHub CLI helpers: auth, label sync, PR review-thread management, index refresh |
+| `src/SwarmSandbox/` | Aspire + Docker sandbox-provisioning service (5 .NET 10 projects + sandbox image definition); see [`src/SwarmSandbox/ARCHITECTURE.md`](src/SwarmSandbox/ARCHITECTURE.md) |
 | `local_ai_instruction_modules/` | Workflow assignment and dynamic workflow lookup tables |
 | `.opencode/` | OpenCode agent definitions and runtime configuration |
 

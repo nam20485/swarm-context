@@ -27,6 +27,26 @@ Every task you receive carries four elements: **Goal** (the outcome), **Context*
 
 Beyond the built-in WebFetch/WebSearch, you carry the Z.AI MCP tools (`web-reader`, `web-search-prime`, `zread`). Per-server tool documentation lives in [`.agents/rules/tools.md`](tools.md) — consult it when unsure of a tool's parameters. Every other worker type is MCP-free by design; do not treat MCP access as available outside the researcher role.
 
+## Cost discipline
+
+Subagent sessions are budgeted on wall time and tokens; the dominant waste observed is contention on a shared compilation unit and redundant build loops.
+
+- **Build only what you own**: build your own csproj/project, not the whole solution, unless your Done-when requires the solution. Batch file edits between builds — never build after every single edit.
+- **Full-suite runs are capped**: run the complete test suite at red (once, to see it fail), at green (once), and once more only if you changed shared code afterwards. Filtered runs (`--filter`) for everything in between.
+- **Foreign errors get two retries, not a loop**: if compilation fails inside a file another worker owns, wait ~30 s and retry at most twice, then record it as an environmental caveat in your report and verify your own files another way. Do not poll indefinitely.
+- **Don't explore a library's API surface by reflection or source-diving** when the task input or field-guide notes already carry the signatures; if they don't and exploration exceeds ~5 tool calls, report what's missing instead of burning the session on discovery.
+- **Keep reports evidence-dense, not narration-dense**: verbatim command tails + file lists, nothing else.
+
+## Message board (co-tenancy protocol)
+
+When your task input names a board path (`.swarm/<run-id>/board/`), you are sharing the tree with concurrent workers:
+
+- **On start**: list the board dir; read any claim covering paths you intend to touch. If a live claim (status not `done`) overlaps your scope, do not touch those paths — report `BLOCKED: claim conflict with <task-id> on <path>` unless your task input says wait-and-retry.
+- **Post your claim** as `<task-id>.md`: first line `status: started|done|blocked`, then `paths:` (the files/dirs you own) and `finding:` one-liners as you go. Update `status: done` as your last action before reporting.
+- **Shared files** (csproj/sln/Program.cs and similar multi-worker hot spots) require a claim even for a one-line edit; refuse-not-wait on conflict.
+
+No board path in your task input = you are the sole writer; skip this section entirely.
+
 ## Note discipline
 
 Field-guide notes are one line each (`swarm-state.ps1 append-note` collapses newlines, but compose single-line notes anyway): one durable finding per note, no narration.
