@@ -1,22 +1,25 @@
 # Orchestrator-Service Simplification — Analysis & Plan
 
-Status: PROPOSED (analysis + plan complete; ACP research verified 2026-09-10)
+Status: APPROVED (owner decisions folded 2026-09-10 — see §5; ready for Phase 0)
 Date: 2026-09-10
 Requirements source: [`docs/plans/orchestrator-service-integration.md`](./orchestrator-service-integration.md) (owner's direction notes)
-Codebase surveyed: `nam20485/orchestrator-service` @ branch `nam20485`, HEAD `2bd6d06` (2026-09-10; working tree there has 38 modified + 2 untracked files — active parallel work, do not assume the map below matches that uncommitted state)
+Codebase surveyed (reference only): `nam20485/orchestrator-service` @ branch `nam20485`, HEAD `2bd6d06` (2026-09-10; working tree there has 38 modified + 2 untracked files — the old repo stays untouched per Decision 8; port listener/webhook code from it, do not build in it)
 
 ## 1. Executive summary
 
-Replace the bespoke opencode-attached dispatch and the prompt-encoded rigid state machine in
-`orchestrator-service` with: a **strongly typed async `PromptInfo` queue** (net-new — it does not
+Replace the bespoke opencode-attached dispatch and the prompt-encoded rigid state machine of the
+old `orchestrator-service` with: a **strongly typed async `PromptInfo` queue** (net-new — it does not
 exist today) feeding an **ACP host** that drives agent CLIs (opencode first) through the Agent
 Client Protocol instead of an always-on `opencode serve` container. The GitHub side (App webhook,
 HMAC verify, label-filtered dispatch) stays as-is. The rigid "match-clause" workflow cycle is
 replaced by an open-ended agent orchestration prompt, per the owner's direction: the models can
 handle dev workflows end-to-end now. Two entry paths must exist: **new app** (plan →
-`gh-issue-tracking-init` → swarm) and **new feature / existing app** (plan → existing tracking
-infra → swarm). The interactive planning wizard frontend has already been ported to the swarm
-repo as `/swarm plan` (`.agents/skills/swarm-plan/`, 2026-09-10).
+`gh-issue-tracking-init` → swarm) and **new feature / existing app** (plan → Epic/Story/Task
+issues in the existing tracking → swarm). The interactive planning wizard frontend has already
+landed in this repo as `/swarm plan` (`.agents/skills/swarm-plan/`). **Implementation lands in a
+new repo — `nam20485/swarm-orchestration-service`, cloned from this template and linked
+fork-style (Decision 8) — carrying both sides: the orchestration service and the swarm driver,
+with SwarmSandbox provisioning the execution environment (Decision 5).**
 
 ## 2. What exists today (evidence)
 
@@ -100,58 +103,76 @@ implementation is co-optable for the host's plan-app avenue — the wizard steps
 consumes), and the goal-derivation gate become the planning prompt the ACP agent runs for
 paths (a)/(b); an autonomous variant of the wizard (defaults chosen instead of asked) feeds
 directly off PromptInfo payloads, keeping the interactive form for human-initiated runs.
+Decision 8 makes this concrete: the orchestration repo is a clone of this template, so the
+swarm assets ship with it.
 
 ## 4. Gap analysis (delta from today)
 
 | Delta | Work |
 |---|---|
-| `PromptInfo` typed queue | **Net-new.** No code exists. Decide model + backing store + durability; retrofit listener to enqueue instead of BackgroundTasks+Popen. |
-| ACP host | **Net-new.** Zero ACP mentions in repo. Replaces `runner.py::dispatch_to_opencode`, `scripts/prompt.ps1`, the `orchestratorservice` container, and the `opencode run --attach` call shape. |
-| Watchdog | **Rework or retire.** Today parses opencode stderr glyph logs for permission-asks/idle; over ACP the equivalents are protocol events (permission requests, session update stream). |
+| `PromptInfo` typed queue | **Net-new** (Decision 1). Design the envelope + in-process queue (Decision 2); retrofit the listener to enqueue instead of BackgroundTasks+Popen. |
+| ACP host | **Net-new.** Zero ACP mentions in the old repo. Replaces `runner.py::dispatch_to_opencode`, `scripts/prompt.ps1`, the `orchestratorservice` container, and the `opencode run --attach` call shape. |
+| Watchdog | **Rework or retire.** Today parses opencode stderr glyph logs for permission-asks/idle; over ACP the equivalents are protocol events (permission requests, session update stream) — Decision 7. |
 | Orchestration prompt | **Rewrite.** 431-line jinja2 match-clause file → open-ended orchestration prompt; workflow bodies stay external in `agent-instructions`. |
-| Feature-request path | **Net-new.** Today only the one fixed cycle exists; path (b) needs planning-into-existing-tracking. |
-| Swarm invocation | **Net-new bridge.** After planning + tracking init, invoke the swarm (this repo) for implementation; requires the autonomous-client question resolved (§5 Q5). |
+| Feature-request path | **Net-new.** Today only the one fixed cycle exists; path (b) creates Epic/Story/Task issues in the existing tracking (Decision 9). |
+| Swarm invocation | **Net-new bridge via SwarmSandbox** (Decision 5): sandbox provisions the environment, the driven ACP client runs the swarm from the in-repo swarm assets. |
 | Deletion | `orchestratorservice` compose service + Dockerfile serve CMD; `prompt.ps1` attach path; opencode-stderr parsing in `run_stream.py`/`watchdog.py`/`filters.py` trace blacklist. |
 
-## 5. Open questions (decision log — answer before implementation)
+## 5. Decisions (owner-reviewed and folded 2026-09-10)
 
-1. **PromptInfo provenance.** The plan says "keep" but the repo has none — was it envisioned in
-   `workflow-launch2` or another sibling, or is it greenfield? Greenfield assumed unless corrected.
-2. **Queue substrate.** In-process `asyncio.Queue` (matches single-container deployment, no new
-   deps, lost on restart) vs Redis (durable, another service) vs sqlite WAL (durable, no new
-   service). Recommendation: in-process first with a `PromptInfo` envelope designed for later
-   export; add durability only when a missed webhook actually hurts.
-3. **ACP opencode status & autonomy — answered by research (§6), pending empirical spike.**
-   `opencode acp` is first-class; Python SDK 0.12.1 gives the host side. Permissions: auto-select
-   `allow_always` in the host's `request_permission` + opencode `permission` config as
-   belt-and-braces; copy acpx's policy shape (`approve-reads` default, per-tool escalation,
-   deny-list for destructive tools) to preserve today's fail-closed stance. The Phase-0 spike must
-   prove the deny path headless, not just the happy path.
-4. **Session shape.** One ACP session per PromptInfo (cold, simple, slower) vs a warm persistent
-   session per repo (faster, stateful, risk of context bleed). Recommendation: per-prompt cold
-   sessions first; the swarm is the long-running part, not the orchestrator turn.
-5. **Who runs the swarm, and on which harness?** The swarm skill is ZCode-specific and
-   interactive (permission-gated workers). Options: (a) the ACP host shells out to a
-   ZCode/goal-mode run when interactive; (b) opencode itself, as the ACP agent, orchestrates
-   swarm-style workers natively (needs opencode-side swarm support — the owner's note); (c) the
-   sandbox service from this repo (SwarmSandbox) provisions the environment and the ACP agent
-   runs the swarm inside it. The requirements' "then invoke the swarm" implies (a) or (c) for now.
-6. **Beads pipeline.** Route BeadsLoop dispatches through the ACP host too (it shares
-   `_prompt_script_invocation` — one seams change), or leave it untouched? Recommendation: route
-   it through the same host (same seam), keep its loop logic unchanged.
-7. **Dashboard/progress.** ACP session/update events → the existing SSE `EventStore` (new event
-   types) vs porting `run_stream.py` glyph parsing. Recommendation: protocol events only; delete
-   the stderr parser.
-8. **Repo & branch logistics.** The work lands in `orchestrator-service` (branch `nam20485`,
-   currently dirty with 38 modified files — coordinate/rebase before starting). Swarm-side pieces
-   (this repo) are already landed: `swarm-plan` skill, exploration inhibitors in agent defs.
-9. **Feature path mechanics.** For path (b): does the feature plan get its own plan doc +
-   `gh-issue-tracking-init` re-sync (idempotent), or issues appended under the existing Plan
-   issue? `gh-issue-tracking-init` is idempotent and re-syncable — recommendation: re-run it with
-   the feature plan as an addendum source.
-10. **Model routing.** Today dispatch pins `qwencloud/qwen3.7-max` + variant `high`. Over ACP,
-    model choice moves into the host's client config — keep parity or re-pin per workflow?
+1. **PromptInfo is greenfield.** No sibling repo holds a prior design — net-new, built per the
+   recommendation below.
+2. **Queue substrate: in-process `asyncio.Queue` first.** Matches the single-container
+   deployment, no new dependencies; the `PromptInfo` envelope is designed for later export, and
+   durability is added only when a missed webhook actually hurts.
+3. **Autonomy model (from research, spike to verify):** the host auto-selects `allow_always` in
+   `session/request_permission` plus opencode's `permission` config as belt-and-braces, copying
+   acpx's policy shape (`approve-reads` default, per-tool escalation, deny-list for destructive
+   tools). Phase-0 must prove the deny path headless, not just the happy path.
+4. **Session shape: one cold ACP session per PromptInfo.** Simple and stateless; the swarm is the
+   long-running part, not the orchestrator turn. Warm per-repo sessions remain a later option.
+5. **Swarm execution: Option C — SwarmSandbox provisions the environment; the driven ACP client
+   runs the swarm inside it.** Owner-confirmed, and the owner's inference is correct: swarm
+   support is thereby decoupled from any specific ACP client. The sandbox provides the harness
+   environment (repo clone with the swarm skills/rules/agent assets at a known revision +
+   `pwsh`/POSIX toolchain); whichever client the host drives (opencode today) executes the swarm
+   from those in-repo assets. The host stays thin — it drives the client, never the swarm.
+6. **Beads pipeline routes through the same ACP host** (the shared `_prompt_script_invocation`
+   seam), loop logic unchanged.
+7. **Dashboard/progress: ACP protocol events only** (`session/update` → the SSE `EventStore` as
+   new event types); the opencode-stderr glyph parser is deleted.
+8. **Repo topology: new repo `nam20485/swarm-orchestration-service`, cloned from THIS repo
+   (swarm-context), for both sides** — no cross-contamination with the old `orchestrator-service`
+   (which remains untouched as the reference implementation to port the listener/webhook code
+   from). The clone carries the swarm harness (`swarm`/`swarm-plan` skills, `.zcode/agents`,
+   rules), `gh-issue-tracking-init`, and the SwarmSandbox service source (Decision 5) — the
+   "Reuse from this repo" note in §3.3 becomes load-bearing here.
 
+   **Linking analysis (owner question: how do the new orchestration-service repo and
+   swarm-context stay linked? no submodules):**
+
+   | Mechanism | Pros | Cons |
+   |---|---|---|
+   | **Fork-style upstream remote** (clone once; `git remote add upstream <swarm-context>`; periodic `git fetch upstream && git merge upstream/development` as a reviewed PR) | plain git, no submodules; shared ancestry makes merges natural; syncs are explicit, reviewable PRs; orchest repo owns its releases; no tooling | occasional merge conflicts where the orchest repo customizes shared files; history carries the template's past (small repo — negligible) |
+   | Template re-clone / cherry-pick | zero coupling | effectively manual copy-paste; no diffable update path; drift is invisible |
+   | Git submodule | precise version pinning | detached-pointer confusion, partial checkouts, CI complexity — owner rejects |
+   | Extracted shared package + sync script | clean layering | big refactor for a 2-consumer base; still needs the sync discipline it claims to remove |
+
+   **Recommendation: fork-style upstream remote.** swarm-context stays the template/harness
+   source of truth; the orchestration repo merges `upstream/development` on demand (each sync a
+   PR, so contamination is one-directional and reviewed). Longer-term, if the swarm harness
+   stabilizes, upstream the shared assets into `intel-agency/agent-context` (the parent
+   template) and point both repos' `upstream` there — same mechanism, one level higher. Cloning
+   agent-context *instead* is not recommended today: it lacks the swarm assets entirely, so the
+   orchest repo would have to re-import them from here anyway.
+9. **Feature path (b): new features become new Epic/Story/Task issues in the EXISTING repo's
+   existing tracking.** The original app-plan issue was the initial implementation's tracking;
+   additional features get their own issues under the existing Projects board and label
+   taxonomy, with new milestones as needed — no separate issue-tracking infra, no
+   `gh-issue-tracking-init` re-run.
+10. **Model routing: nothing is pinned host-side.** All model/agent settings and customization
+    come from the ACP client the host drives (its own config, e.g. `opencode.json`); the host
+    carries no model defaults.
 ## 6. ACP research summary (verified 2026-09-10, primary sources)
 
 **Protocol.** ACP v1 is stable (v2 in draft since 2026-07-20 — ignore draft features). JSON-RPC 2.0
@@ -195,31 +216,40 @@ docs — likely a companion endpoint).
 
 ## 7. Implementation plan (phased)
 
-- **Phase 0 — Spikes (orchestrator-service, ~1 session each)**
+- **Phase 0 — Bootstrap + spikes (new repo `nam20485/swarm-orchestration-service`, ~1 session each)**
+  0. Bootstrap: clone this repo (post-plan rev) to `nam20485/swarm-orchestration-service`, add
+     `upstream` → swarm-context per Decision 8, port the webhook listener + GitHub auth from the
+     old repo (reference only), and stand up the compose skeleton (listener + Caddy proxy).
   1. ACP spike: drive `opencode acp --cwd <scratch>` from a Python host script on
      `agent-client-protocol==0.12.1` (pinned) — initialize → new_session → one prompt → collect
      `session/update` → stopReason; then prove the permission deny path headless (request_permission
      auto-reject, and the opencode `permission`-config belt-and-braces). Exit: working spike
      script + §6 residual unknowns resolved (floor version, `--auto` scope, acp network flags).
-  2. PromptInfo design doc (model fields, substrate, durability posture) resolving Q1/Q2.
+  2. PromptInfo design doc (envelope fields, in-process queue, durability posture) per Decisions 1–2.
 - **Phase 1 — Queue seam (no behavior change)**: define `PromptInfo`; listener enqueues;
   consumer dequeues into the *existing* dispatch path. EventStore gains `prompt_queued`/
   `prompt_consumed` events. Exit: webhook→dispatch flows through the queue; dashboard shows it.
-- **Phase 2 — ACP host replaces dispatch**: host launches opencode over ACP per PromptInfo;
-  delete `orchestratorservice` container, `prompt.ps1` attach path, stderr glyph parsing;
-  watchdog rework onto protocol events (or retire if idle detection is subsumed). Exit: label
-  dispatch end-to-end over ACP; compose down to 2 services.
-- **Phase 3 — Open-ended orchestration prompt**: replace the jinja2 clause file with the
-  pseudo-code workflow prompt; agent decides progression from live tracking state. Exit: the
-  existing label cycle driven without clause matching; regression pass over the label matrix.
+- **Phase 2 — ACP host replaces dispatch**: host launches opencode over ACP per PromptInfo
+  (cold session per Decision 4, no host-side model pins per Decision 10); no `opencode serve`
+  container ever exists in the new repo — port only the listener/webhook side, implement the
+  host fresh; watchdog needs port only if idle detection is not subsumed by protocol events
+  (Decision 7). Exit: label dispatch end-to-end over ACP.
+- **Phase 3 — Open-ended orchestration prompt**: implement the pseudo-code workflow prompt
+  (no clause table to replace in the new repo — the old jinja2 file is the regression reference);
+  agent decides progression from live tracking state. Exit: the label matrix driven without
+  clause matching.
 - **Phase 4 — Paths (a) and (b) + swarm bridge**: new-app path (plan → tracking-init → swarm)
-  and feature path (plan → tracking re-sync → swarm) per Q5/Q9 decisions. Exit: both paths
-  demonstrated end-to-end on a scratch repo.
-- **Phase 5 — Retirement & docs**: remove dead code paths (old runner branches, watchdog
-  remnants), update README/AGENTS/GEMINI docs, e2e smoke in the simulator, version bump.
+  and feature path (plan → new Epic/Story/Task issues in the existing tracking per Decision 9);
+  swarm bridge per Decision 5 — SwarmSandbox provisions the sandbox, the driven ACP client runs
+  the swarm from the cloned repo's swarm assets. Exit: both paths demonstrated end-to-end on a
+  scratch repo.
+- **Phase 5 — Hardening & docs**: e2e smoke in the simulator, dashboard event polish, README/
+  AGENTS/GEMINI-equivalent docs, version bump; decommission plan for the old orchestrator-service
+  stack (its webhook receiver/`opencode serve` containers stop when the new listener takes the
+  Caddy route).
 
-Each phase lands as its own PR to `orchestrator-service`; swarm-context-side work is already
-landed (`swarm-plan`, inhibitors) or tracked in this repo.
+Each phase lands as its own PR to `nam20485/swarm-orchestration-service`; swarm-context-side work
+is already landed (`swarm-plan`, inhibitors, SwarmSandbox) and flows in via `upstream` merges.
 
 ## 8. Risks
 
@@ -230,9 +260,13 @@ landed (`swarm-plan`, inhibitors) or tracked in this repo.
   bumps are mechanical.
 - **Autonomy vs fail-closed permissions**: the single biggest behavioral guarantee to preserve;
   spike must prove the deny path, not just the happy path.
-- **Parallel work in the target repo** (dirty tree on branch `nam20485`): land phases small and
-  rebase deliberately.
-- **Two engines diverging**: if BeadsLoop is left on the old path, its seam (`prompt.ps1`)
-  deletion breaks it — Phase 2 must carry both call sites or explicitly stage them.
-- **Prompt regression**: the clause table, for all its rigidity, is battle-tested; keep the old
-  jinja2 file reachable behind a config flag for one release as a fallback dispatch mode.
+- **Porting drift from the old repo**: the old `orchestrator-service` (dirty tree, reference
+  only) keeps moving — snapshot the relevant files at Phase 0 and treat §2's map as of
+  `2bd6d06`; re-verify listener behavior against the live repo before porting each piece.
+- **Fork-style upstream conflicts**: upstream merges will conflict wherever the orchest repo
+  customizes shared template files (README, rules) — keep template-file edits minimal upstream of
+  product code directories so merges stay mechanical.
+- **Two engines diverging**: if BeadsLoop is left un-ported, the new repo simply lacks it —
+  Decision 6 says port it through the same host seam; if deferred, track it explicitly.
+- **Prompt regression**: the old clause table, for all its rigidity, is battle-tested; keep its
+  label matrix as the Phase 3 regression checklist.
