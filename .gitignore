@@ -54,5 +54,8 @@ desktop.ini
 !.zcode/agents/
 !.zcode/config.example.json
 
-# .NET test results (validation.ps1 -Step dotnet writes TestResults/)
+# .NET test results (TestResults/)
 TestResults/
+
+# swarm telemetry run artifact (created/appended by swarm-analyst; never committed)
+docs/swarm-metrics.md
