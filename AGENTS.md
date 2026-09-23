@@ -2,7 +2,7 @@
 
 ## Repository identity
 
-This repository — **`intel-agency/agent-context`** — is the **GitHub template repo**: the substrate from which each downstream instance is cloned to house a unique app plan and develop it. Any other repo name is a **clone instance** of this template, so when the user refers to "a downstream clone", "an instance", "the template", or names a different repo, treat it as a clone seeded from this one.
+This repository — **`nam20485/swarm-context`** — is the **parent template**: a fork-style descendant of the `intel-agency/agent-context` template (its `upstream`, push-disabled; base content flows one-way via reviewed PRs) extended with the swarm surfaces (`.zcode/agents` worker definitions, `.agents/rules/swarm.md` + `swarm-workers.md`, the `$swarm` and `swarm-plan` skills). Clones for the swarm-orchestration workflow are minted from it (GitHub template route) by the launcher in `nam20485/swarm-orchestration-service`, so when the user refers to "the parent template", "the swarm seed", or "a swarm-context clone", treat it as a repo stamped from this one.
 
 ## Memory and Rules
 
