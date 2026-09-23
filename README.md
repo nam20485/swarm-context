@@ -1,8 +1,12 @@
-# agent-context
+# swarm-context
 
-This repository is the GitHub **template repo** for `intel-agency`: the substrate from which
-each downstream instance is cloned to house a unique application plan and develop it. Any
-other repo name is a clone instance seeded from this one.
+This repository is the **parent template** in the repo chain: a fork-style descendant of
+[`intel-agency/agent-context`](https://github.com/intel-agency/agent-context) extended with
+the swarm surfaces — `.zcode/agents` worker definitions, `.agents/rules/swarm.md` +
+`swarm-workers.md`, and the `$swarm` / `swarm-plan` skills. Clones for the
+swarm-orchestration workflow are minted from it (GitHub template route) by the launcher in
+`nam20485/swarm-orchestration-service` (`create-repo-agent-context.ps1`); upstream base
+content flows one-way from `agent-context` via reviewed PRs.
 
 ## Prerequisites
 
@@ -36,9 +40,9 @@ and are never committed to the repository.
 | `.agents/memory.md` | Durable project context: current activity, completed work, decisions |
 | `.agents/rules/` | Coding conventions, tool usage, validation, and practices (one file per subject) |
 | `.agents/skills/` | Agent Skills (`swarm` goal-loop swarm, `swarm-plan` interactive planning frontend, `gh-issue-tracking-init`, `update-powershell-standard`) |
+| `.zcode/agents/` | ZCode agent definitions — the `swarm-*` worker set |
 | `docs/` | Reference documentation and plans |
 | `scripts/` | GitHub CLI helpers: auth, label sync, PR review-thread management, index refresh |
-| `src/SwarmSandbox/` | Aspire + Docker sandbox-provisioning service (5 .NET 10 projects + sandbox image definition); see [`src/SwarmSandbox/ARCHITECTURE.md`](src/SwarmSandbox/ARCHITECTURE.md) |
 | `local_ai_instruction_modules/` | Workflow assignment and dynamic workflow lookup tables |
 | `.opencode/` | OpenCode agent definitions and runtime configuration |
 

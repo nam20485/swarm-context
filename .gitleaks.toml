@@ -1,4 +1,4 @@
-title = "agent-context gitleaks config"
+title = "swarm-context gitleaks config"
 
 [extend]
 useDefault = true
