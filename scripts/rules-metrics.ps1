@@ -68,7 +68,13 @@ $loaded = @(@(Read-Jsonl (Join-Path $MetricsDir 'instructions-loaded.jsonl')) |
 $reads = @(@(Read-Jsonl (Join-Path $MetricsDir 'rule-reads.jsonl')) |
   Where-Object { $_.PSObject.Properties['cwd'] -and $_.cwd -eq $repoPath })
 
-function In-Window { param($items) @(@($items) | Where-Object { $_.PSObject.Properties['ts'] -and ([datetime]$_.ts).ToUniversalTime() -ge $cutoff }) }
+# Null-safe window filter: `-as` yields $null for a null, absent, or
+# non-date ts — the row simply misses the window instead of throwing
+# (a bare [datetime] cast aborts the whole report under ErrorActionPreference
+# Stop, exactly what these guards exist to prevent).
+function In-Window { param($items) @(@($items) | Where-Object {
+    $ts = if ($_.PSObject.Properties['ts']) { $_.ts -as [datetime] }
+    $null -ne $ts -and $ts.ToUniversalTime() -ge $cutoff }) }
 # An @() returned from a function collapses to $null on assignment, so re-wrap here: under
 # Set-StrictMode a bare $null.Count is an error, not 0.
 $loadedW = @(In-Window $loaded)
@@ -76,16 +82,21 @@ $readsW = @(In-Window $reads)
 
 Write-Host "repo            : $repoPath"
 Write-Host "window          : last $Days day(s)"
-Write-Host "context loads   : $($loadedW.Count)  (distinct files $(@($loadedW | ForEach-Object file | Sort-Object -Unique).Count))"
-Write-Host "rule reads      : $($readsW.Count)  (distinct sessions $(@($readsW | ForEach-Object session | Sort-Object -Unique).Count))"
+# Same PSObject.Properties guard as the consult table below: member-mode
+# ForEach-Object (`ForEach-Object file`) throws PropertyNotFoundException
+# under StrictMode on a row missing the property — one malformed hook-log
+# row must be skipped, not abort the whole report.
+Write-Host "context loads   : $($loadedW.Count)  (distinct files $(@($loadedW | ForEach-Object { if ($_.PSObject.Properties['file']) { $_.file } } | Sort-Object -Unique).Count))"
+Write-Host "rule reads      : $($readsW.Count)  (distinct sessions $(@($readsW | ForEach-Object { if ($_.PSObject.Properties['session']) { $_.session } } | Sort-Object -Unique).Count))"
 
 # --- Was the entry point that carries the TOC actually in context? ---
 Write-Host "`n== Context files injected into sessions (proof the TOC was available) =="
 $loadedW |
+  Where-Object { $_.PSObject.Properties['file'] -and $_.file } |
   Group-Object file |
   Sort-Object Count -Descending |
   ForEach-Object {
-    [pscustomobject]@{ File = Split-Path $_.Name -Leaf; Loads = $_.Count; Reason = (($_.Group | ForEach-Object load_reason | Sort-Object -Unique) -join ',') }
+    [pscustomobject]@{ File = Split-Path $_.Name -Leaf; Loads = $_.Count; Reason = ((@($_.Group | ForEach-Object { if ($_.PSObject.Properties['load_reason']) { $_.load_reason } }) | Sort-Object -Unique) -join ',') }
   } | Format-Table -AutoSize
 
 # --- Per-rule-file consult table ---
@@ -98,7 +109,7 @@ $rows = @()
 if (Test-Path -LiteralPath $ruleRoot) {
   $rows = @(Get-ChildItem -LiteralPath $ruleRoot -Recurse -Filter '*.md' -Force | ForEach-Object {
       $rel = $_.FullName.Substring($ruleRoot.Length + 1) -replace '\\', '/'
-      $hits = @($readsW | Where-Object { $_.PSObject.Properties['file'] -and $_.file.Replace('\', '/').EndsWith("/.agents/rules/$rel") })
+      $hits = @($readsW | Where-Object { $_.PSObject.Properties['file'] -and $_.file -and $_.file.Replace('\', '/').EndsWith("/.agents/rules/$rel") })
       $canary = ''
       if ($registryObj -and $registryObj.PSObject.Properties['rules']) {
         $val = $registryObj.rules.PSObject.Properties[$rel]
@@ -108,7 +119,7 @@ if (Test-Path -LiteralPath $ruleRoot) {
         Rule     = $rel
         Canary   = $canary
         Reads    = $hits.Count
-        Sessions = (@($hits | ForEach-Object session | Sort-Object -Unique)).Count
+        Sessions = (@($hits | ForEach-Object { if ($_.PSObject.Properties['session']) { $_.session } } | Sort-Object -Unique)).Count
         LastRead = if ($hits.Count) { (($hits | ForEach-Object { [datetime]$_.ts } | Sort-Object)[-1]).ToString('MM-dd HH:mm') } else { '-' }
         Status   = if ($rel -like '*unreferenced*') { 'DECOY(must stay unread)' } elseif ($hits.Count) { 'consulted' } else { 'NEVER READ' }
       }
@@ -173,7 +184,7 @@ if ($AuditFabrication) {
             $relOfToken = $fileOfToken -replace '^!DECOY! ', ''
             $hasRead = @($reads | Where-Object {
                 $_.PSObject.Properties['session'] -and $_.session -eq $session -and
-                $_.PSObject.Properties['file'] -and $_.file.Replace('\', '/').EndsWith("/.agents/rules/$relOfToken")
+                $_.PSObject.Properties['file'] -and $_.file -and $_.file.Replace('\', '/').EndsWith("/.agents/rules/$relOfToken")
               }).Count -gt 0
             $kind = if ($fileOfToken -like '!DECOY!*') { 'DECOY-APPEARED (over-load or fabrication)' }
             elseif (-not $hasRead) { 'UNSUPPORTED (token with no logged read)' }
