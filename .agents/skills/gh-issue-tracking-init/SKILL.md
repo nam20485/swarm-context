@@ -465,6 +465,67 @@ manual confirmation before proceeding:
 & "$Skill/assert-no-secrets.ps1" -BodyFiles $bodies.BodyFile -DryRun
 ```
 
+### Keep every tool call under the idle window: chunk the apply and stream driver liveness
+
+Observed live on charlie68 run `df4c8f2d`: the board/milestone apply ran as ONE
+redirected bash call (`pwsh … > apply-runN.log 2>&1`) and was killed at **302 s**
+mid-board-onboarding. The receiver's idle watchdog has exactly two liveness signals —
+session status updates and harness stderr lines. During a >300 s apply that streams
+nothing, both go quiet and the watchdog kills a **live** run. Two rules prevent this;
+both are mandatory when composing the driver:
+
+**(a) The composed apply must NEVER redirect output to a file-only sink.** `> log 2>&1`
+is banned in the driver invocation. The per-op progress lines (`Write-Step` /
+`Write-Ok` / `Write-Skip` from `scripts/common.ps1`) must **stream live** to stdout so
+the dispatching session observes them and emits status between ops, feeding the
+watchdog. When a persisted copy of apply output is wanted for forensics, use
+`Tee-Object` (stream AND capture), never a redirect-only invocation:
+
+```pwsh
+# GOOD: streams to the caller's stdout AND persists a copy
+& pwsh -NoProfile -File $driver -Phase epic | Tee-Object -FilePath $applyLog
+# BANNED: file-only sink — the watchdog sees nothing for the whole call
+& pwsh -NoProfile -File $driver -Phase epic > $applyLog 2>&1
+```
+
+**(b) Chunk the apply per epic.** Do not run board onboarding as one monolith. Split it
+into per-epic chunk invocations — for a 7-epic plan, ~7 driver invocations of ~40 s
+each — so no single tool call outlives the smallest idle window (the receiver default
+`ACP_IDLE_TIMEOUT` is 300 s). Between chunks the dispatching session observes the
+chunk's streamed output and emits a status update, which re-arms the watchdog:
+
+```pwsh
+foreach ($epic in $epics) {   # $epics ordered by dependency, same as the issue map
+    & pwsh -NoProfile -File $driver -Epic $epic.Title | Tee-Object -FilePath "$($epic.Slug).log"
+    Start-Sleep -Milliseconds 500
+}
+```
+
+If a chunk fails, the streamed per-op lines tell you exactly which op died — a
+file-only redirect of the whole monolith tells you nothing until you open the log after
+the kill.
+
+### PowerShell variable names are case-insensitive: never ship a `$Num`/`$num` pair
+
+PowerShell variable names are **case-insensitive** — `$Num` and `$num` are the SAME
+variable. Observed live on charlie68 run `8a809037`: the generated `07-execution.ps1`
+assigned under one casing and read under the other, so the read silently returned an
+empty value, and the run had to self-fix it live. The symptom signature: an assignment
+under one case, a read under the other, and a downstream parameter binding that gets
+nothing without any error.
+
+Prescription: use **distinct names** for distinct things — `$IssueNum` for an issue
+number, `$MilestoneNum` for a milestone — and never a bare `$Num`. Audit the composed
+driver for case-colliding names before the apply (DryRun pass):
+
+```pwsh
+$names = Select-String -LiteralPath $driver -Pattern '\$[A-Za-z_][A-Za-z0-9_]*' -AllMatches |
+    ForEach-Object { $_.Matches.Value } | Sort-Object -Unique
+$collisions = $names | Group-Object { $_.ToLowerInvariant() } |
+    Where-Object { ($_.Group | Sort-Object -Unique).Count -gt 1 }
+if ($collisions) { throw "Case-insensitive variable collision in driver: $($collisions.Name -join ', ')" }
+```
+
 ## Idempotency & re-runs
 
 The scripts match existing labels/milestones/fields/issues (by numbered title)/links
