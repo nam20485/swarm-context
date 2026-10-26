@@ -6,7 +6,7 @@ Detailed tool guidance and decision points for this project.
 
 Use of these MCP servers was discontinued on 2026-09-12 — both were deemed
 redundant and inferior to the model's builtin reasoning and memory. Their server
-definitions were removed from the MCP configs (`.opencode/opencode.jsonc` and,
+definitions were removed from the MCP configs (the root `opencode.json` and,
 where present, `.zcode/config*.json`) and the former usage guidance is withdrawn;
 do not call their tools or re-add usage guidance.
 
@@ -46,7 +46,7 @@ Full guide: [Codebase Indexing](https://github.com/Kilo-Org/kilocode/blob/main/p
 
 ## Web & Repository Research (Z.AI MCP)
 
-These three **remote** Z.AI MCP servers (configured in [`.opencode/opencode.jsonc`](../../.opencode/opencode.jsonc)) authenticate via the `Authorization: {env:Z_AI_API_KEY}` header. Z.AI requires the `Bearer <api-key>` header format and opencode substitutes the env var verbatim as the full header value, so **`Z_AI_API_KEY` must be the full header value, `Bearer <api-key>`**. The servers require no local install; use them for reliable, structured external information retrieval instead of ad-hoc fetching.
+These three **remote** Z.AI MCP servers (configured in the root [`opencode.json`](../../opencode.json)) authenticate via the `Authorization: {env:Z_AI_API_KEY}` header; the committed config carries no credential entries — auth headers are supplied out-of-band (environment / `auth.json`). Z.AI requires the `Bearer <api-key>` header format and opencode substitutes the env var verbatim as the full header value, so **`Z_AI_API_KEY` must be the full header value, `Bearer <api-key>`**. The servers require no local install; use them for reliable, structured external information retrieval instead of ad-hoc fetching.
 
 ### `web-search-prime` — web search
 

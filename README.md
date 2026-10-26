@@ -29,8 +29,9 @@ content flows one-way from `agent-context` via reviewed PRs.
 
 ## Configuration
 
-Secrets are referenced as `{env:VAR}` patterns in [`.opencode/opencode.jsonc`](.opencode/opencode.jsonc)
-and are never committed to the repository.
+Credentials are never committed to the repository — the root [`opencode.json`](opencode.json)
+carries no `apiKey` values or `{env:VAR}` credential references; auth is resolved from the
+environment / `auth.json` at runtime.
 
 ## Repository layout
 
