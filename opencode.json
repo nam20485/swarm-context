@@ -17,20 +17,32 @@
   "mcp": {
     "web-reader": {
       "type": "remote",
-      "url": "https://api.z.ai/api/mcp/web_reader/mcp"
+      "url": "https://api.z.ai/api/mcp/web_reader/mcp",
+      "headers": {
+        "Authorization": "{env:Z_AI_API_KEY}"
+      }
     },
     "zread": {
       "type": "remote",
-      "url": "https://api.z.ai/api/mcp/zread/mcp"
+      "url": "https://api.z.ai/api/mcp/zread/mcp",
+      "headers": {
+        "Authorization": "{env:Z_AI_API_KEY}"
+      }
     },
     "web-search-prime": {
       "type": "remote",
-      "url": "https://api.z.ai/api/mcp/web_search_prime/mcp"
+      "url": "https://api.z.ai/api/mcp/web_search_prime/mcp",
+      "headers": {
+        "Authorization": "{env:Z_AI_API_KEY}"
+      }
     },
     "exa": {
       "type": "remote",
       "url": "https://mcp.exa.ai/mcp?tools=web_search_exa,web_fetch_exa,web_search_advanced_exa,get_code_context_exa,crawling_exa",
-      "enabled": true
+      "enabled": true,
+      "headers": {
+        "x-api-key": "{env:EXA_API_KEY}"
+      }
     }
   },
   "provider": {
