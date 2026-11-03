@@ -642,6 +642,103 @@ Describe 'ensure-project.ps1 — Status options and views automation' {
         }
     }
 
+    Context 'fields pagination — second page fields are honored' {
+        BeforeAll {
+            $defaultOptions = @(
+                (New-TestOption 't1' 'Todo')
+                (New-TestOption 'i1' 'In Progress')
+                (New-TestOption 'd1' 'Done')
+            )
+            # Status (with its options) only arrives on fields page 2; page 1
+            # carries Title + Parent issue. A single-page read would miss Status
+            # entirely: no option merge and no By Status board grouping.
+            $page1Fields = @(
+                (New-TestField 'Title' 329)
+                (New-TestField 'Parent issue' 358)
+            )
+            $page2Fields = @(
+                (New-TestField 'Status' 345 $defaultOptions)
+            )
+            $views = @([pscustomobject]@{ id = 'PVTV_1'; number = 1; name = 'View 1'; layout = 'TABLE_LAYOUT' })
+            $makePage = {
+                param($FieldNodes, $FieldsHasNext, $FieldsCursor)
+                $owner = [pscustomobject]@{
+                    __typename = 'Organization'
+                    projectV2  = [pscustomobject]@{
+                        id     = 'PVT_kwDOTESTPROJECT'
+                        fields = [pscustomobject]@{
+                            nodes    = $FieldNodes
+                            pageInfo = [pscustomobject]@{ hasNextPage = $FieldsHasNext; endCursor = $FieldsCursor }
+                        }
+                        views  = [pscustomobject]@{
+                            nodes    = $views
+                            pageInfo = [pscustomobject]@{ hasNextPage = $false; endCursor = $null }
+                        }
+                    }
+                }
+                [pscustomobject]@{ data = [pscustomobject]@{ repository = [pscustomobject]@{ owner = $owner } } } | ConvertTo-Json -Depth 12 -Compress
+            }
+            # Eagerly built: scriptblock closures over fixture vars don't survive Pester scoping.
+            # Page 2 redelivers the page-1 views (views connection is already exhausted
+            # by then), pinning that a finished connection's nodes are never appended twice.
+            $script:FieldsPage1 = & $makePage $page1Fields $true 'FCURSOR_2'
+            $script:FieldsPage2 = & $makePage $page2Fields $false $null
+        }
+        BeforeEach {
+            Install-TestGhMock
+            $global:FieldsPaginationPage2 = $script:FieldsPage2
+            $global:ReadResponse = $script:FieldsPage1
+            $inner = (Get-Command gh -CommandType Function).ScriptBlock
+            function global:gh {
+                param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
+                $global:LASTEXITCODE = 0
+                $joined = $Arguments -join ' '
+                if ($Arguments -contains 'graphql' -and $joined -notmatch 'query=mutation') {
+                    if ($joined -match 'fieldCursor=FCURSOR_2') {
+                        # Log like the inner mock does, so the cursor request is assertable.
+                        $global:GhCallLog.Add('READ ' + $joined)
+                        return $global:FieldsPaginationPage2
+                    }
+                    return $global:ReadResponse
+                }
+                & $inner @Arguments
+            }
+        }
+        AfterEach {
+            Remove-TestGhMock
+            Remove-Variable -Name FieldsPaginationPage2 -Scope Global -ErrorAction SilentlyContinue
+        }
+
+        It 'requests the second fields page with the cursor' {
+            & $script:EnsureProjectScript -Owner 'o' -Repo 'o/r' -Title 'Test' 6>&1 3>&1 | Out-Null
+            ($global:GhCallLog | Where-Object { $_ -match '^READ ' -and $_ -match 'fieldCursor=FCURSOR_2' }).Count | Should -Be 1
+        }
+
+        It 'merges Status options found only on fields page 2, preserving ids' {
+            & $script:EnsureProjectScript -Owner 'o' -Repo 'o/r' -Title 'Test' 6>&1 3>&1 | Out-Null
+            $mutation = @($global:GhCallLog | Where-Object { $_ -match 'updateProjectV2Field' })
+            $mutation.Count | Should -Be 1
+            $mutation[0] | Should -Match 'fieldId=PVT_Status'
+            $mutation[0] | Should -Match 'In Review'
+            $mutation[0] | Should -Match 'Blocked'
+            $mutation[0] | Should -Match 'id: "t1"'
+            $mutation[0] | Should -Match 'id: "i1"'
+            $mutation[0] | Should -Match 'id: "d1"'
+        }
+
+        It 'groups the By Status board by the page-2 Status field and does not double-append redelivered views' {
+            $all = & $script:EnsureProjectScript -Owner 'o' -Repo 'o/r' -Title 'Test' 6>&1 3>&1
+            ($global:GhCallLog | Where-Object { $_ -match 'POST' -and $_ -match 'name=By Status' }) | Should -Match 'vertical_group_by\[\]=345'
+            ($global:GhCallLog | Where-Object { $_ -match 'POST' }).Count | Should -Be 4
+            # View 1 arrived on both read pages; the leftover-delete must still fire exactly once.
+            $delete = @($global:GhCallLog | Where-Object { $_ -match 'deleteProjectV2View' })
+            $delete.Count | Should -Be 1
+            $delete[0] | Should -Match 'viewId=PVTV_1'
+            $info = @($all | Where-Object { $_ -is [System.Management.Automation.InformationRecord] } | ForEach-Object { "$_" })
+            (@($info | Where-Object { $_ -match 'could not automate the built-in .Status. field options' })).Count | Should -Be 0
+        }
+    }
+
     Context 'DryRun — project missing prints would-actions for options and views' {
         BeforeEach {
             Install-TestGhMock
