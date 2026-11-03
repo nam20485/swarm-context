@@ -15,7 +15,8 @@
 $ghitDir = Split-Path -Parent $PSScriptRoot
 $opScripts = @(
     'ensure-labels.ps1', 'ensure-project.ps1', 'ensure-issue.ps1',
-    'link-sub-issue.ps1', 'set-dependency.ps1', 'set-project-fields.ps1'
+    'link-sub-issue.ps1', 'set-dependency.ps1', 'set-project-fields.ps1',
+    'resolve-plan-root.ps1'
 )
 $allScripts = @('common.ps1') + $opScripts
 
@@ -26,6 +27,7 @@ $repoValidationCases = @(
     @{ Name = 'link-sub-issue.ps1'; Splat = @{ Repo = 'no-slash'; ParentNumber = 1; ChildNumber = 2 } }
     @{ Name = 'set-dependency.ps1'; Splat = @{ Repo = 'no-slash'; IssueNumber = 1; BlockedByNumber = 2 } }
     @{ Name = 'set-project-fields.ps1'; Splat = @{ Owner = 'o'; ProjectNumber = 1; Repo = 'no-slash'; IssueNumber = 2 } }
+    @{ Name = 'resolve-plan-root.ps1'; Splat = @{ Repo = 'no-slash' } }
 )
 
 BeforeAll {
