@@ -12,8 +12,9 @@
     - Script path resolved INSIDE BeforeAll via $PSScriptRoot.
     - gh CLI mocked as `function global:gh` with ValueFromRemainingArguments;
       removed in AfterEach.
-    - $global:LASTEXITCODE reset in BeforeEach.
-    - gh call tracking via $global:GhCallLog.
+    - $global:LASTEXITCODE set per call by the gh mock (not reset in BeforeEach).
+    - gh call tracking via $global:GhCallLog (mutations raw, REST POSTs raw,
+      GraphQL reads prefixed 'READ ').
     - GraphQL reads/mutations share one stub distinguished by 'query=mutation'
       in the joined arguments; REST view creates are POST calls.
     - Write-Host output asserted via the information stream (6>&1).
@@ -49,7 +50,10 @@ Describe 'ensure-project.ps1 — Status options and views automation' {
                 __typename = if ($IsUser) { 'User' } else { 'Organization' }
                 projectV2  = [pscustomobject]@{
                     id     = 'PVT_kwDOTESTPROJECT'
-                    fields = [pscustomobject]@{ nodes = $Fields }
+                    fields = [pscustomobject]@{
+                        nodes    = $Fields
+                        pageInfo = [pscustomobject]@{ hasNextPage = $false; endCursor = $null }
+                    }
                     views  = [pscustomobject]@{
                         nodes     = $Views
                         pageInfo  = [pscustomobject]@{ hasNextPage = $false; endCursor = $null }
@@ -82,6 +86,7 @@ Describe 'ensure-project.ps1 — Status options and views automation' {
                             if ($q -match 'createProjectV2View') { return '{"data":{"createProjectV2View":{"projectV2View":{"id":"PVTV_new"}}}}' }
                             return '{"data":{}}'
                         }
+                        $global:GhCallLog.Add('READ ' + $q)
                         return $global:ReadResponse
                     }
                     if ($Arguments -contains 'POST') { $global:GhCallLog.Add($q); return '{"id":11,"number":9}' }
@@ -260,6 +265,7 @@ Describe 'ensure-project.ps1 — Status options and views automation' {
 
         It 'attempts exactly one GraphQL read and no mutations' {
             & $script:EnsureProjectScript -Owner 'o' -Repo 'o/r' -Title 'Test' 6>&1 3>&1 | Out-Null
+            (@($global:GhCallLog | Where-Object { $_ -match '^READ ' })).Count | Should -Be 1
             ($global:GhCallLog | Where-Object { $_ -match 'query=mutation' }).Count | Should -Be 0
             ($global:GhCallLog | Where-Object { $_ -match 'POST' }).Count | Should -Be 0
         }
@@ -396,6 +402,8 @@ Describe 'ensure-project.ps1 — Status options and views automation' {
             $all = & $script:EnsureProjectScript -Owner 'o' -Repo 'o/r' -Title 'Test' 6>&1 3>&1
             $warnings = @($all | Where-Object { $_ -is [System.Management.Automation.WarningRecord] })
             (@($warnings | Where-Object { $_.Message -match "Failed to create view 'By Status'" })).Count | Should -Be 1
+            # The other three views created, and the default View 1 cleanup still runs.
+            (@($global:GhCallLog | Where-Object { $_ -match 'deleteProjectV2View' })).Count | Should -Be 1
             # The wrapper short-circuits both failing calls before the shared mock
             # logs them, so exactly the three successful REST creates appear.
             $posts = @($global:GhCallLog | Where-Object { $_ -match 'POST' })
@@ -583,7 +591,10 @@ Describe 'ensure-project.ps1 — Status options and views automation' {
                     __typename = 'Organization'
                     projectV2  = [pscustomobject]@{
                         id     = 'PVT_kwDOTESTPROJECT'
-                        fields = [pscustomobject]@{ nodes = $fields }
+                        fields = [pscustomobject]@{
+                            nodes    = $fields
+                            pageInfo = [pscustomobject]@{ hasNextPage = $false; endCursor = $null }
+                        }
                         views  = [pscustomobject]@{
                             nodes    = $Nodes
                             pageInfo = [pscustomobject]@{ hasNextPage = $HasNext; endCursor = $Cursor }

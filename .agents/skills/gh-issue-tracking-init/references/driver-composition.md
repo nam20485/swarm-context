@@ -20,9 +20,9 @@ A composed `gh-issue-tracking-init` run writes several artifacts: a PowerShell d
 ```
 
 The **canonical forensic run log** is NOT here — `Initialize-LogFile` writes it to
-`<repo-root>/gh-init-<slug>-<UTC-timestamp>.log` (see *Initialize the forensic logfile
-first* above), where it survives for post-execution forensics. Keep scratch-workspace
-`diag/` scripts for one-off experiments only.
+`<repo-root>/gh-init-<slug>-<UTC-timestamp>.log` (see the *Initialize the forensic logfile
+first* step in [`SKILL.md`](../SKILL.md)), where it survives for post-execution
+forensics. Keep scratch-workspace `diag/` scripts for one-off experiments only.
 
 This is repo-wide hygiene, not optional: a prior forensic run (`gap-miner-v2-charlie53`) left a stale, repo-hardcoded `gapminer-gh-init-driver.ps1` loose in `/tmp/kilo/`, which a later run could have mistaken for reusable and pointed at the wrong repo. **Create on demand** (`mkdir -p` / `New-Item -ItemType Directory -Force`), and before reusing anything under `/tmp/kilo/`, confirm the slug matches the current repo.
 
@@ -105,7 +105,7 @@ After the title/milestone check above, also assert that no `##`/`###` section bo
 **byte-identical across ≥ 3 sibling issues** at the same level (stories under one epic,
 or epics under one plan). Identical section bodies across siblings is the strongest
 filler signal — it means the section was pasted from a template rather than derived from
-the plan. See [Body composition specification](../SKILL.md#body-composition-specification) above for
+the plan. See [Body composition specification](../SKILL.md#body-composition-specification) for
 the rules this enforces. Run this over the rendered body files in the DryRun pass (before
 any `gh` create call):
 

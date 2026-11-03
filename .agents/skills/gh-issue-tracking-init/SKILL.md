@@ -34,7 +34,7 @@ it is invoked from.
   remote of the enclosing git repo). Use this default unless the user names a
   different repo.
 - **Plan source** — a description of the epics/stories/tasks that you map onto the
-  four levels and the numbering scheme. Three source classes:
+  four levels and the numbering scheme. Two source classes:
   - **Plan doc** (a filled plan document). **Default when omitted:** resolve
     `plan_docs/**/*.md` non-interactively using filename role classification
     (match any slug, word-boundary, case-insensitive):

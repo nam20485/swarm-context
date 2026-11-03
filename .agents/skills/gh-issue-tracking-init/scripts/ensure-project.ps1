@@ -115,12 +115,15 @@ function Get-ProjectState {
         [Parameter(Mandatory = $true)][int]$Number
     )
     $parts = Get-RepoParts -Repo $Repo
-    # The views connection is paginated (up to 50 per page): GitHub views are not
+    # Both connections are paginated (up to 50 per page). GitHub views are not
     # name-unique, so a hidden page-2 view would otherwise defeat the existence
-    # checks in Ensure-Views and cause duplicate creates. The $viewCursor
-    # variable is omitted on the first call (server treats it as null).
+    # checks in Ensure-Views and cause duplicate creates; likewise a project
+    # with > 50 fields could hide Status / Phase / Parent issue beyond the
+    # first page, silently degrading grouping (re-runs skip existing views by
+    # name, so the degradation would never be repaired). Cursor variables are
+    # omitted on the first call (server treats them as null).
     $query = @'
-query($owner: String!, $name: String!, $number: Int!, $viewCursor: String) {
+query($owner: String!, $name: String!, $number: Int!, $fieldCursor: String, $viewCursor: String) {
   repository(owner: $owner, name: $name) {
     owner {
       __typename
@@ -131,8 +134,9 @@ query($owner: String!, $name: String!, $number: Int!, $viewCursor: String) {
 }
 fragment ProjectBody on ProjectV2 {
   id
-  fields(first: 50) {
+  fields(first: 50, after: $fieldCursor) {
     nodes { ...FieldConfig }
+    pageInfo { hasNextPage endCursor }
   }
   views(first: 50, after: $viewCursor) {
     nodes { id number name layout }
@@ -154,10 +158,19 @@ fragment FieldConfig on ProjectV2FieldConfiguration {
     $projNode = $null
     $fields = @()
     $views = @()
+    $fieldCursor = $null
     $viewCursor = $null
+    $fieldsDone = $false
+    $viewsDone = $false
     try {
-        while ($true) {
-            $ghArgs = if ($null -ne $viewCursor) { $baseArgs + @('-f', "viewCursor=$viewCursor") } else { $baseArgs }
+        # Loop until BOTH connections are exhausted. A finished connection's
+        # cursor is dropped from the next request (it would just return an
+        # empty page) and its nodes are skipped on subsequent iterations, so
+        # re-delivered page-1 data is never appended twice.
+        while (-not ($fieldsDone -and $viewsDone)) {
+            $ghArgs = $baseArgs
+            if ($null -ne $fieldCursor) { $ghArgs += @('-f', "fieldCursor=$fieldCursor") }
+            if ($null -ne $viewCursor) { $ghArgs += @('-f', "viewCursor=$viewCursor") }
             $resp = Invoke-GhJson @ghArgs
             if ($null -eq $resp) { return $null }
             # Direct property access (not Get-JsonProp chaining): Get-JsonProp returns a
@@ -171,13 +184,29 @@ fragment FieldConfig on ProjectV2FieldConfiguration {
                 $isUser = ($ownerNode.__typename -eq 'User')
                 $projNode = $ownerNode.projectV2
                 if ($null -eq $projNode) { return $null }
-                $fields = @($projNode.fields.nodes | Where-Object { $null -ne $_ })
             }
             $pageProject = $pageOwner.projectV2
             if ($null -eq $pageProject) { return $null }
-            $views += @($pageProject.views.nodes | Where-Object { $null -ne $_ })
-            if (-not $pageProject.views.pageInfo.hasNextPage) { break }
-            $viewCursor = $pageProject.views.pageInfo.endCursor
+            if (-not $fieldsDone) {
+                $fields += @($pageProject.fields.nodes | Where-Object { $null -ne $_ })
+                if ($pageProject.fields.pageInfo.hasNextPage) {
+                    $fieldCursor = $pageProject.fields.pageInfo.endCursor
+                }
+                else {
+                    $fieldsDone = $true
+                    $fieldCursor = $null
+                }
+            }
+            if (-not $viewsDone) {
+                $views += @($pageProject.views.nodes | Where-Object { $null -ne $_ })
+                if ($pageProject.views.pageInfo.hasNextPage) {
+                    $viewCursor = $pageProject.views.pageInfo.endCursor
+                }
+                else {
+                    $viewsDone = $true
+                    $viewCursor = $null
+                }
+            }
         }
         $userDbId = $null
         if ($isUser -and $null -ne $ownerNode.PSObject.Properties['databaseId']) {
@@ -210,14 +239,14 @@ function ConvertTo-GraphQLString {
 function Get-OptionProp {
     <#
     .SYNOPSIS
-        Null-safe string read of an option node property with a default, used
-        when building singleSelectOption literals. Guards both against a null
-    value (a null color would render the invalid literal 'color: ,') and
-    against a missing property under Set-StrictMode.
+        Null/empty-safe string read of an option node property with a default,
+        used when building singleSelectOption literals. Guards both against a
+        null or empty value (an empty color would render the invalid literal
+        'color: ,') and against a missing property under Set-StrictMode.
     #>
     param($Object, [string]$Name, [string]$Default = '')
     $prop = $Object.PSObject.Properties[$Name]
-    if ($prop -and $null -ne $prop.Value) { return "$($prop.Value)" }
+    if ($prop -and -not [string]::IsNullOrEmpty($prop.Value)) { return "$($prop.Value)" }
     return $Default
 }
 

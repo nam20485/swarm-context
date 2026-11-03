@@ -96,13 +96,14 @@ function Get-OpenPlanIssues {
         # endpoint returns both issues and pull requests.
         $candidates = @($batch | Where-Object {
                 $null -ne $_ `
+                -and $null -ne $_.PSObject.Properties['number'] `
                 -and $null -ne $_.PSObject.Properties['title'] `
                 -and $null -ne $_.PSObject.Properties['created_at'] `
                 -and $null -eq $_.PSObject.Properties['pull_request']
             })
         foreach ($m in $candidates) {
             $found += [pscustomobject]@{
-                Number    = [int]$m.number
+                Number    = [int]$m.PSObject.Properties['number'].Value
                 Title     = [string]$m.title
                 CreatedAt = [datetime]$m.created_at
             }

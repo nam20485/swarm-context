@@ -1,4 +1,4 @@
-# /gh-issue-tracking-init skill exisintg plan mode plan
+# /gh-issue-tracking-init skill existing plan mode plan
 
 ```
 Repo with no plan hierarchy at all: the sub-issue-only convention needs a plan root for epics to attach to (parent rollup depends on it), so the skill wraps your feature list in a minimal Plan: <Name> issue and parents the epics under it.

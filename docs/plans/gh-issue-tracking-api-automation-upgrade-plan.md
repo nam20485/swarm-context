@@ -264,11 +264,26 @@ against a user-owned scratch project (#76, fully restored afterwards):
    fallback is gated on REST *unavailability* (HTTP 404/405 captured from gh
    stderr) — transient failures (429/5xx/422) route to the manual list instead
    of permanently degraded grouping-less views; a filter-update failure after
-   a successful GraphQL create warns instead of printing duplicate-creating
-   manual instructions; the views read is paginated (`first: 50` + cursor
-   loop) so view-heavy projects cannot produce duplicate creates; option
-   color/description reads are null-guarded (null color defaults to GRAY).
+    a successful GraphQL create warns instead of printing duplicate-creating
+    manual instructions; the views read is paginated (`first: 50` + cursor
+    loop) so view-heavy projects cannot produce duplicate creates; option
+    color/description reads are null-guarded (null color defaults to GRAY).
+ 8. **PR review round 2** (same day): the GraphQL read now paginates the
+    `fields` connection with the same `pageInfo` cursor loop as `views` (a
+    project with >50 fields could previously hide Status/Phase/Parent issue
+    past page 1, silently degrading grouping — unrepaired on re-runs since
+    existing views are skipped by name); `Get-OptionProp` also rejects empty
+    strings (an API `""` color would emit the invalid literal `color: ,`);
+    `resolve-plan-root.ps1` reads `number` through the same
+    `PSObject.Properties` StrictMode guard as `title`/`created_at`; the test
+    mock logs GraphQL reads (`READ ` prefix) and the fallback test asserts
+    exactly one read; the view-create-failure test asserts the `View 1`
+    delete its title names; docs corrected (source-class count, two dangling
+    `above` cross-references from the SKILL.md split, stale verification
+    counts, memory factual errors, `exisintg`→`existing` filename typo via
+    `git mv`).
 
-Verification: 17 new Pester tests (`EnsureProjectViews.Tests.ps1`) + full suite
-260/260, coverage 95.35%, `validation.ps1` all green; live apply + idempotent
+Verification: 20 new Pester tests (`EnsureProjectViews.Tests.ps1`) + full suite
+263/263, coverage 95.28% at delivery (95.20% after the PR-review round below),
+`validation.ps1` all green; live apply + idempotent
 re-run + option-id preservation confirmed on the scratch project.
