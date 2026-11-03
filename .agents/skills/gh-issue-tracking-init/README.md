@@ -209,23 +209,28 @@ idempotency guarantee in action.
 
 ## Known limitations
 
-- **Project views can't be created via `gh`/API.** `ensure-project.ps1` prints
-  the four intended views (By Phase, By Status, By Epic, Current work) for you
-  to add once in the Project UI.
-- **Built-in `Status` field options.** `gh` 2.46 can't add options to an
-  existing single-select field, so extra `Status` values (`In Review`,
-  `Blocked`) may need a one-time manual add in the UI.
+- **Project views** are created automatically: By Phase, By Status, By Epic,
+  Current work — via the REST view API (layout + grouping + filter in one call)
+  with a GraphQL `createProjectV2View`/`updateProjectV2View` fallback where REST
+  is unavailable (user-owned projects today — that fallback cannot set board
+  grouping, so grouped views carry a one-time grouping hint). The default
+  "View 1" is deleted afterwards. On targets with neither API (e.g. GHES) the
+  script prints the manual click-path instead of failing.
+- **Built-in `Status` field options** are ensured automatically via
+  `updateProjectV2Field` (`In Review`, `Blocked` appended; existing option ids
+  preserved so item values survive). Options without readable ids or a failed
+  mutation degrade to a printed manual note.
 
 ## Out of scope (for now)
 
 - **The issue-implementation skill** — a separate, deferred skill that would
   pick the "current" issue to work on and implement it; this skill only builds
   the hierarchy.
-- **Defects/bugs** — no `defect` level, label, or template. Adding `defect` as a
-  board `Level` would require extending the Project single-select *after* field
-  creation, which `gh`/API cannot do (options are only settable at creation);
-  shipping it half-working would force a manual UI step on every re-run, so it
-  is deferred until that can be fully automated.
+- **Defects/bugs** — no `defect` level, label, or template; deferred as a product
+  decision (templates, labels, and selection semantics need designing). The old
+  technical blocker is gone: `updateProjectV2Field` can now extend a single-select
+  field's options after creation — the same mechanism the scripts use for the
+  built-in Status field.
 
 ## Bundled resources
 
