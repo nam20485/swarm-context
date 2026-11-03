@@ -1,6 +1,6 @@
 ---
 name: gh-issue-tracking-init
-description: Use when initializing (or re-syncing) a GitHub issue-based planning hierarchy in a repo — a plan → epic → story → task tree of linked sub-issues plus a Projects v2 board, milestones, and labels. Composes the idempotent PowerShell operation scripts in this skill's own scripts/ directory (self-contained) to build the structure from a plan document and the issue templates. Trigger when the user asks to "set up GH issue tracking", "create the plan/issue hierarchy", "scaffold epics/stories/tasks as issues", or names a target repo ($ghrepo) to initialize.
+description: Use when initializing (or re-syncing) a GitHub issue-based planning hierarchy in a repo — a plan → epic → story → task tree of linked sub-issues plus a Projects v2 board, milestones, and labels. Composes the idempotent PowerShell operation scripts in this skill's own scripts/ directory (self-contained) to build the structure from a plan document, a feature list, or the issue templates. Trigger when the user asks to "set up GH issue tracking", "create the plan/issue hierarchy", "scaffold epics/stories/tasks as issues", or names a target repo ($ghrepo) to initialize or extend.
 ---
 
 # gh-issue-tracking-init
@@ -24,7 +24,7 @@ dependency on anything outside its own directory — copy
 
 ## Inputs
 
-Both inputs have defaults and may be omitted — the skill then runs against the repo
+All inputs have defaults and may be omitted — the skill then runs against the repo
 it is invoked from.
 
 - `$ghrepo` — target repository as `owner/repo` (or a URL you normalize to that).
@@ -33,31 +33,45 @@ it is invoked from.
   `gh repo view --json nameWithOwner -q .nameWithOwner` (equivalently, the `origin`
   remote of the enclosing git repo). Use this default unless the user names a
   different repo.
-- **Plan source** — a description of the epics/stories/tasks (a filled plan doc, or
-  the user's description) that you map onto the four levels and the numbering scheme.
-  **Default when omitted:** resolve `plan_docs/**/*.md` non-interactively using
-  filename role classification (match any slug, word-boundary, case-insensitive):
+- **Plan source** — a description of the epics/stories/tasks that you map onto the
+  four levels and the numbering scheme. Three source classes:
+  - **Plan doc** (a filled plan document). **Default when omitted:** resolve
+    `plan_docs/**/*.md` non-interactively using filename role classification
+    (match any slug, word-boundary, case-insensitive):
 
-  - **Primary plan** → issue tree. Slugs: `development-plan`, `development plan`,
-    `app-plan`, `application-plan`, `implementation`, `implementation-spec`,
-    `implementation plan`, `specification`. Parse into plan→epic→story→task nodes.
-  - **Architecture** → context. Slugs: `architecture`, `architecture-guide`,
-    `architecture-plan`, `architecture overview`. Reference in the Plan body and
-    relevant epic bodies.
-  - **Reference / background** → context. Everything else (`strategic`,
-    `feasibility`, `vision`, `context`, `research`, …). Reference in the Plan body
-    only.
+    - **Primary plan** → issue tree. Slugs: `development-plan`, `development plan`,
+      `app-plan`, `application-plan`, `implementation`, `implementation-spec`,
+      `implementation plan`, `specification`. Parse into plan→epic→story→task nodes.
+    - **Architecture** → context. Slugs: `architecture`, `architecture-guide`,
+      `architecture-plan`, `architecture overview`. Reference in the Plan body and
+      relevant epic bodies.
+    - **Reference / background** → context. Everything else (`strategic`,
+      `feasibility`, `vision`, `context`, `research`, …). Reference in the Plan body
+      only.
 
-  > Bare `plan` is NOT a primary slug — words like "execution plan" or "strategic plan" contain "plan" but are not development plans.
+    > Bare `plan` is NOT a primary slug — words like "execution plan" or "strategic plan" contain "plan" but are not development plans.
 
-  Resolution rules (deterministic; log the choice; never block except rule 5):
-  1. Exactly one primary plan → use it. Fold architecture + reference docs into the Plan body as supporting context.
-  2. No primary plan, one doc total → use that doc as the primary plan.
-  3. No primary plan, multiple docs → pick the doc with strongest task structure (count headings matching `^#+\s*(T-?\d+[-.]?\d*|Task\s|Phase\s|Story\s|Epic\s)`); tie-break by filename order.
-  4. Multiple primary plans → use the first in filename order; log rationale (never prompt).
-  5. Zero docs (`plan_docs/` missing or empty) → hard stop: require the user to supply a plan source explicitly.
+    Resolution rules (deterministic; log the choice; never block except rule 5):
+    1. Exactly one primary plan → use it. Fold architecture + reference docs into the Plan body as supporting context.
+    2. No primary plan, one doc total → use that doc as the primary plan.
+    3. No primary plan, multiple docs → pick the doc with strongest task structure (count headings matching `^#+\s*(T-?\d+[-.]?\d*|Task\s|Phase\s|Story\s|Epic\s)`); tie-break by filename order.
+    4. Multiple primary plans → use the first in filename order; log rationale (never prompt).
+    5. Zero docs (`plan_docs/` missing or empty) → hard stop: require the user to supply a plan source explicitly.
 
-  The only case that prompts is an empty/missing `plan_docs/` with no plan supplied.
+    The only case that prompts is an empty/missing `plan_docs/` with no plan supplied.
+  - **Feature list** (or the user describing features rather than a plan) → the
+    **[Feature-list plan source (feature campaigns)](#feature-list-plan-source-feature-campaigns)**
+    flow applies instead of the plan-doc resolver: derive a campaign Plan root from
+    the features per that section. A supplied feature list also satisfies rule 5
+    above (nothing to prompt for).
+- `$ExistingPlanMode` — applies **only when the plan source is a feature list**:
+  `continue-existing` (attach the campaign to the newest open plan root; default) or
+  `new-feature-plan` (always create a new wrapper Plan issue). The default is the
+  constant **`DEFAULT_EXISTING_PLAN_MODE = 'continue-existing'`**, whose canonical
+  machine value is the `-Mode` parameter default in
+  [`scripts/resolve-plan-root.ps1`](./scripts/resolve-plan-root.ps1) — this document
+  references it by name and must not drift. Plan-doc sources ignore the mode
+  entirely (they match their plan issue by title).
 
   ## Mapping the plan onto the hierarchy
 
@@ -89,6 +103,95 @@ the single most load-bearing decision in the run; apply it deliberately:
 > on the corresponding issue so the plan↔issue mapping is self-documenting — e.g. a
 > parenthetical suffix in the title (`Story 2.3: Repository Layer (T-1.3)`).
 
+## Feature-list plan source (feature campaigns)
+
+When the plan source is a **feature list** (or the user describes features rather
+than a plan), do NOT wrap the list in a hollow Plan issue and do NOT stop for a plan
+doc — derive a **feature campaign**. The campaign narrative lives in the **plan
+body**: either a new wrapper Plan issue (`Plan: <CampaignName>`, template
+[`assets/templates/feature-campaign-plan.md`](./assets/templates/feature-campaign-plan.md))
+or an appended dated section on the existing Plan issue (below).
+
+### Mapping features onto the hierarchy
+
+- **Each feature = one Epic** under the plan root. Decompose into Stories only when
+  the feature has evident sub-work; a trivial feature may be a single-story epic.
+  Introduce Tasks only when a further sub-tier is evident (unchanged rule).
+- **Numbering continues repo-wide (both modes).** The next epic number is the max
+  `Epic <N>:` prefix across ALL issues in the repo (open + closed) + 1 (min 1) —
+  `resolve-plan-root.ps1` computes it. No duplicate `Epic N` prefixes in one repo;
+  `Story N.M` inherits that uniqueness, and title-based ensure-matching stays
+  unambiguous across plans. Never restart numbering at 1 for a new campaign.
+- **Milestone convention.** Create a milestone **named after the campaign** and
+  assign it to each campaign epic and all its descendants (this also satisfies the
+  DryRun milestone assertion).
+
+> **Terminology collision, campaigns edition.** Feature campaigns deliberately do
+> **NOT** create or use the **`Phase` Project field** — campaign grouping is the
+> plan-body campaign section + the campaign milestone. The Phase field remains
+> plan-doc-driven only. Never pass `-Phases`/`-Phase` for a campaign run.
+
+### Campaign derivation rules
+
+- **Name:** the tightest honest theme shared by the features, 2–5 words.
+  Calibration: `gRPC Migration`, `Backend Cleanup & Refactor`, `Frontend
+  Performance`, `Expand Test Coverage`, `ArgoCD Deployment Conversion`. Truly
+  heterogeneous fallback: `Feature Batch: <dominant theme or YYYY-MM>`.
+- **Overview:** 3–6 sentences on the campaign's central theme and intended outcome —
+  what the feature set collectively achieves and why. No per-feature detail (that
+  lives on the epics).
+- **Goals:** 2–5 bullets derived from the features.
+- **Omit any section with no derivable content** (existing omit-don't-fabricate
+  rule). Heavyweight application-plan sections (Tech Stack table, Repository
+  layout, Exact package versions, Development Standards) are **never fabricated**
+  for campaigns. Existing guards apply unchanged to campaign bodies: the filler
+  detector, child-issue list identifiers (`Epic <N>:` / `Story <N>.<M>:` verbatim in
+  the Implementation Plan lists), and `assert-no-secrets.ps1`.
+
+### Modes (`DEFAULT_EXISTING_PLAN_MODE`)
+
+Resolve the anchor with `resolve-plan-root.ps1`; the mode applies **only** to
+feature-list sources:
+
+| Mode | Behavior |
+|---|---|
+| `continue-existing` (default) | ≥1 open plan root → attach to the **newest by creation** (log when several). 0 open → create a new wrapper Plan issue (closed plan roots are finished campaigns, never continued). Narrative = appended `## Feature Campaign: <Name> (<UTC date>)` section on the existing Plan body. |
+| `new-feature-plan` | Always create a new wrapper Plan issue, even when open plan roots exist. Numbering still continues repo-wide. |
+
+### Appended-section flow (continue-existing, idempotent re-sync)
+
+Fetch the existing Plan body, **replace** an existing `## Feature Campaign: <Name>`
+section by heading match, or **append** if absent — never blind-append (a re-run of
+the same list must replace, not duplicate):
+
+```pwsh
+$anchorJson = & "$Skill/resolve-plan-root.ps1" -Repo $ghrepo -Mode $ExistingPlanMode
+$anchor = $anchorJson | ConvertFrom-Json
+$epicN = [int]$anchor.NextEpicNumber   # number this campaign's epics from here
+if ($anchor.CreatePlan) {
+    # render feature-campaign-plan.md with the derived campaign body, then:
+    $planNumber = & "$Skill/ensure-issue.ps1" -Repo $ghrepo -Title "Plan: $CampaignName" -BodyFile $planBodyFile -Labels plan
+} else {
+    # replace-or-append the dated '## Feature Campaign: <Name> (<UTC date>)' section:
+    $existingBody = Invoke-Gh api "repos/$ghrepo/issues/$($anchor.PlanNumber)" --jq .body
+    $newBody = Merge-CampaignSection -Body $existingBody -Section $campaignSection   # heading-match replace, else append
+    $planNumber = & "$Skill/ensure-issue.ps1" -Repo $ghrepo -Title $anchor.PlanTitle -Body $newBody -Labels plan -UpdateBody
+}
+```
+
+Campaign epics/stories use `epic.md`/`story.md` filled from the feature content
+(the per-feature detail lives there, not on the plan body). Pass splatted hashtables
+for field assignment; never build integer-keyed lookup maps (existing driver rules).
+Concurrent campaigns can race the max-epic scan (read-then-create is not atomic) —
+sequence concurrent runs rather than parallelizing them.
+
+### Smoke scenarios (throwaway repo, user-run)
+
+- (a) Feature list on an empty repo → wrapper campaign Plan + epics (numbering from 1).
+- (b) Re-run the same list → idempotent: campaign section **replaced**, not duplicated; issues matched by title.
+- (c) Second feature list, `continue-existing` → appended dated section on the same Plan root; epic numbering continues repo-wide.
+- (d) `new-feature-plan` → a second Plan root; numbering still continues repo-wide.
+
 ## Prerequisites
 
 - `pwsh` 7+ and `gh` authenticated with the `project` scope (`$GITHUB_TOKEN` is honored).
@@ -119,7 +222,8 @@ the single most load-bearing decision in the run; apply it deliberately:
 - **Phases** are optional; only create the Phase field/values if the plan uses them.
 - Bodies come from the templates in
   [`assets/templates/`](./assets/templates/)
-  (`application-plan.md`, `epic.md`, `story.md`, `task.md`) — fill placeholders, then
+  (`application-plan.md`, `feature-campaign-plan.md`, `epic.md`, `story.md`,
+  `task.md`) — fill placeholders, then
   pass the result to `ensure-issue.ps1` via `-BodyFile`.
 
 ## Body composition specification
@@ -153,6 +257,9 @@ corresponding issue section entirely — do not fabricate placeholder content.
 | Prompt-text catalog (if the plan includes one) | The stories whose `Plan` section implements the corresponding prompt | **Verbatim** inside the story's `Reference` fenced block |
 | Parallel-execution map / task groups | Plan body (optional summary) | Summarized; blocked-by edges already encode the dependencies structurally |
 | Per-epic technology subset | Epic `Brief Technology Stack` | Only rows applicable to that epic; remove the rest |
+| Feature-list theme (derived campaign overview) | Campaign Plan body `Overview` | **Derived**: 3–6 sentences on the shared theme and intended outcome; no per-feature detail |
+| Features (feature-list source) | Campaign Plan body `Goals` + `Implementation Plan` entries | Each feature = one `Epic <N>:` entry (with its `Story <N>.<M>:` entries when decomposed); numbering continues from `NextEpicNumber` |
+| Per-feature detail (feature-list source) | Epic bodies (`epic.md` filled from feature content) | Feature-specific overview/goals/stories live on the epic — never on the campaign Plan body |
 
 ### Filler prohibition
 
@@ -195,7 +302,9 @@ All scripts below live in this skill's `scripts/` directory.
 repo (see [Inputs](#inputs)). If no plan source is named, resolve it non-interactively
 from `plan_docs/` per the plan-doc set convention above — classify by filename role,
 use the primary plan as the node source, and fold the rest into the Plan body as
-supporting context. The only hard stop is an empty/missing `plan_docs/` with no plan
+supporting context. If the supplied (or described) source is a feature list, the
+[Feature-list plan source](#feature-list-plan-source-feature-campaigns) flow applies
+instead. The only hard stop is an empty/missing `plan_docs/` with no plan source
 supplied; everything else resolves automatically. **Do not prompt the user to choose
 between plan docs.**
 
@@ -218,9 +327,18 @@ script (each with its own `$script:` scope) writes to the same file without need
 the path passed in. The file lands at `<repo-root>/gh-init-<slug>-<UTC-timestamp>.log`
 and is covered by `.gitignore` (`gh-init-*.log`).
 
-1. **Parse the plan** into a tree of nodes (plan, epics, stories, tasks) with the
+1. **Resolve the plan anchor** (feature-campaign runs only — plan-doc runs match
+   their plan issue by title and skip this): call
+   `resolve-plan-root.ps1 -Repo $ghrepo [-Mode $ExistingPlanMode]` and capture its
+   single JSON line (`ConvertFrom-Json`). `CreatePlan`/`PlanNumber`/`PlanTitle`
+   decide whether the run creates a wrapper Plan issue (template
+   `feature-campaign-plan.md`) or appends a campaign section to the existing root
+   (see *Feature-list plan source*); `NextEpicNumber` is the first epic number this
+   run may assign.
+2. **Parse the plan** into a tree of nodes (plan, epics, stories, tasks) with the
    numbered titles above, plus per-node labels, milestone, phase, priority, estimate,
-   and any blocking dependencies.
+   and any blocking dependencies. For feature-campaign runs, number the epics from
+   the resolved `NextEpicNumber` (repo-wide continuation).
 
    **Canonical node schema** (assert presence before rendering — an omitted field
    produces empty titles/milestones silently otherwise):
@@ -229,34 +347,39 @@ and is covered by `.gitignore` (`gh-init-*.log`).
      build it (`N`/`M`/`K`, `Name`)
    - `Labels`, `Milestone`, `Priority`, `Phase` (if used)
    - `BodyFile` (after rendering), `Prereqs` (array of sibling keys, story/task level)
-2. **Labels:** `ensure-labels.ps1 -Repo $ghrepo`.
-3. **Milestones:** for each conceptual group, `create-milestones.ps1 -Repo $ghrepo -Titles <name> -SkipExisting`.
-4. **Project + fields:** `ensure-project.ps1 -Owner <owner> -Repo $ghrepo [-Phases <p1,p2>]`.
+3. **Labels:** `ensure-labels.ps1 -Repo $ghrepo`.
+4. **Milestones:** for each conceptual group, `create-milestones.ps1 -Repo $ghrepo -Titles <name> -SkipExisting`.
+5. **Project + fields:** `ensure-project.ps1 -Owner <owner> -Repo $ghrepo [-Phases <p1,p2>]`.
    Capture the **project number** from stdout (`$Proj = & ensure-project.ps1 ...`); in
    `-DryRun` it is `$null` (the project is not created, so nothing is emitted).
-5. **Create issues** (top-down) with `ensure-issue.ps1`, filling the matching template
-   into a temp file and passing `-BodyFile`. Capture each printed issue **number**:
+6. **Create issues** (top-down) with `ensure-issue.ps1`, filling the matching template
+   into a temp file and passing `-BodyFile` — `application-plan.md` for plan-doc
+   roots, `feature-campaign-plan.md` for campaign roots, and `epic.md`/`story.md`/
+   `task.md` filled from the feature content for campaign epics/stories/tasks.
+   Capture each printed issue **number**:
    - plan → epics → stories → tasks; apply the level label and (for epics + descendants) the milestone.
-6. **Link sub-issues** with `link-sub-issue.ps1 -ParentNumber <parent> -ChildNumber <child>`
+7. **Link sub-issues** with `link-sub-issue.ps1 -ParentNumber <parent> -ChildNumber <child>`
    for every parent/child edge.
-7. **Set board fields** with `set-project-fields.ps1` for each issue: `-Level`,
+8. **Set board fields** with `set-project-fields.ps1` for each issue: `-Level`,
    `-Priority`, `-Phase` (if used), `-Estimate`, `-Status` (default `Todo`).
-8. **Dependencies:** for each "blocked by" edge, `set-dependency.ps1 -IssueNumber <blocked> -BlockedByNumber <blocker>`.
-9. **Views:** `ensure-project.ps1` prints the four views to add once in the Project UI
+9. **Dependencies:** for each "blocked by" edge, `set-dependency.ps1 -IssueNumber <blocked> -BlockedByNumber <blocker>`.
+10. **Views:** `ensure-project.ps1` prints the four views to add once in the Project UI
    (not automatable). Relay that to the user.
-10. **Signal completion:** on a successful **apply** run (never in `-DryRun`, never after a
-    partial/failed run), apply the `gh-issue-tracking:init-success` label to the **Plan
-    issue** (the single plan-level node created in step 5). This label is the orchestration
-    hand-off signal — a downstream orchestrator matches it to learn the hierarchy is
-    initialized and ready. The label was ensured by step 2, so apply it directly:
+11. **Signal completion:** on a successful **apply** run (never in `-DryRun`, never after a
+    partial/failed run), apply the `gh-issue-tracking:init-success` label to the **plan
+    root this run attached to** — the plan-level issue created this run **or** the
+    existing plan root continued this run (`gh issue edit` is idempotent for an
+    already-labeled existing root). This label is the orchestration hand-off signal —
+    a downstream orchestrator matches it to learn the hierarchy is initialized and
+    ready. The label was ensured by step 3, so apply it directly:
     ```pwsh
-    # $planNumber = the Plan issue number captured in step 5; $ghrepo = target repo.
+    # $planNumber = the Plan issue number created/continued this run; $ghrepo = target repo.
     # Guard on success: only the final action of a fully-applied (non-DryRun) run.
     & gh issue edit $planNumber --repo $ghrepo --add-label 'gh-issue-tracking:init-success'
     ```
-    A Plan issue is required: if no plan-level node was created (no apply happened, or the
-    run was `-DryRun`), skip this step. If the label apply fails, log a warning but do not
-    fail the run — the hierarchy itself is already complete.
+    A plan root is required: if the run attached to no plan root (no apply happened,
+    or the run was `-DryRun`), skip this step. If the label apply fails, log a warning
+    but do not fail the run — the hierarchy itself is already complete.
 
 ## Delegation performance (batching)
 

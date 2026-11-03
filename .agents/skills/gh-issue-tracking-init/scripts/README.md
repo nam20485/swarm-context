@@ -22,6 +22,7 @@ This directory is **self-contained**: `common-auth.ps1`, `import-labels.ps1`, an
 | `link-sub-issue.ps1` | Attach a child issue as a sub-issue of a parent | `-Repo -ParentNumber -ChildNumber` |
 | `set-project-fields.ps1` | Add an issue to the board and set `Level/Priority/Phase/Status/Estimate` | `-Owner -ProjectNumber -Repo -IssueNumber [...]` |
 | `set-dependency.ps1` | Record a "blocked by" relationship | `-Repo -IssueNumber -BlockedByNumber` |
+| `resolve-plan-root.ps1` | **Read-only** plan-anchor resolution (feature-campaign runs): which open plan root to continue (newest by creation) or whether to create one, plus the next repo-wide epic number (max `Epic <N>:` over open+closed + 1); **prints exactly one JSON line to stdout** (`{Mode, PlanNumber, PlanTitle, CreatePlan, NextEpicNumber}` — plan fields null when `CreatePlan` is true; capture via `$() \| ConvertFrom-Json`). Never mutates the repo; throws (non-zero) on `gh` failure. `-DryRun` announces and exits with zero `gh` calls. | `-Repo [-Mode continue-existing\|new-feature-plan] [-DryRun]` |
 | `assert-no-secrets.ps1` | Scan rendered issue-body files for secrets before `gh issue create`; **throws on confident detection** (throw-and-halt, no auto-redaction) | `-BodyFiles [-DryRun]` |
 
 **Milestones** (conceptual work groups such as `POC`, `MVP`, `UI`, `Server`) are created with the vendored [`create-milestones.ps1`](./create-milestones.ps1) — no dedicated op script is needed.
@@ -44,7 +45,7 @@ Re-runs are safe. Labels, milestones, project fields, sub-issue links, and depen
 pwsh -NoProfile -Command "Invoke-Pester -Path .agents/skills/gh-issue-tracking-init/scripts/tests -Output Detailed"
 ```
 
-The Pester suite covers the `common.ps1` helper logic (with `gh` mocked), the label taxonomy, per-script contracts (parse cleanly, expose `-DryRun`, reject malformed `-Repo`), and self-containment (the three vendored scripts are present locally). It performs **no repo mutation**.
+The Pester suite covers the `common.ps1` helper logic (with `gh` mocked), the label taxonomy, per-script contracts (parse cleanly, expose `-DryRun`, reject malformed `-Repo`), `resolve-plan-root.ps1` anchor resolution (newest-open-plan targeting, `CreatePlan` fallbacks, `-Mode` default, repo-wide next-epic numbering incl. pagination), and self-containment (the three vendored scripts are present locally). It performs **no repo mutation**.
 
 ## Smoke test (run against a throwaway repo)
 

@@ -157,6 +157,7 @@ The outputs of this plan are two skills, four issue templates, and a set of scri
 Issue templates for each level of the hierarchy live in the skill's [`../assets/templates/`](../assets/templates) directory:
 
 - **Application Plan** ([`../assets/templates/application-plan.md`](../assets/templates/application-plan.md)) — top-level plan issue: overview, goals, technology stack, features, system architecture, phased implementation plan (with epic-grouped subsections in Phase 2), mandatory requirements (testing, docs, build, infrastructure with SHA-pinned Actions), acceptance criteria, risks, timeline, and success metrics.
+- **Feature Campaign Plan** ([`../assets/templates/feature-campaign-plan.md`](../assets/templates/feature-campaign-plan.md)) — top-level plan issue for a **feature campaign** derived from a feature list (v1.1): slim derived body (overview, goals, implementation plan with the same child-issue identifier rules, optional out-of-scope/success-criteria); never fabricates heavyweight application-plan sections.
 - **Epic** ([`../assets/templates/epic.md`](../assets/templates/epic.md)) — epic-level issue scoped to a single project/component: overview, project, component, goals, component-specific technology stack, epic stories, component architecture, project structure area, story-based implementation plan, mandatory requirements, acceptance criteria, risks, timeline, and success metrics.
 - **Story** ([`../assets/templates/story.md`](../assets/templates/story.md)) — story-level issue: objective, in/out of scope, task plan, acceptance criteria, validation commands, dependencies (related issues, env vars, external services, data requirements), risks & mitigations, test strategy (unit/integration/e2e), rollback steps, implementation notes, and related documentation.
 - **Task** ([`../assets/templates/task.md`](../assets/templates/task.md)) — task-level issue: description, acceptance criteria, validation commands, dependencies, risks & mitigations, test strategy, and rollback steps.
@@ -202,3 +203,17 @@ For the deliverables of this plan (the skills and scripts):
 
 - **Defects/bugs** — no defect template or `defect` label is created yet; defect handling is deferred to a later version.
 - **Issue-implementation skill** — the current-issue selection algorithm and intra-level ordering are deferred to a later phase; this plan focuses on the hierarchy-creation skill first.
+
+## Feature campaigns (v1.1)
+
+A **feature list** is a second-class plan source alongside plan docs. Each feature
+becomes one Epic (stories only when the feature has evident sub-work) under a
+**derived campaign plan root**: either a new wrapper Plan issue (template
+`feature-campaign-plan.md`) or — in `continue-existing` mode (the constant
+`DEFAULT_EXISTING_PLAN_MODE`, canonical value = the `-Mode` default in
+`scripts/resolve-plan-root.ps1`) — an appended dated
+`## Feature Campaign: <Name> (<UTC date>)` section on the newest open Plan issue.
+Epic numbering continues the **repo-wide max** across all plans (open + closed);
+campaign grouping uses a milestone named after the campaign, **never** the Phase
+field. `SKILL.md` is the operative surface for this flow; this section is a
+summary.
