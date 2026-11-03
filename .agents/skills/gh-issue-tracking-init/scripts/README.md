@@ -35,8 +35,8 @@ Re-runs are safe. Labels, milestones, project fields, sub-issue links, and depen
 
 ## Known limitations (surfaced honestly)
 
-- **Project views are not automatable.** GitHub's CLI/API has no supported "create view" operation, so `ensure-project.ps1` prints the four views to add once in the Project UI: **By Phase, By Status, By Epic, Current work**.
-- **Built-in `Status` options are limited.** `gh` cannot add options to an existing single-select field, so the initial set is `Todo / In Progress / Done`. If your workflow needs `In Review` or `Blocked`, add those once in the Project UI.
+- **Project views** (github.com): created automatically by `ensure-project.ps1` — **By Phase, By Status, By Epic, Current work**, leftover default "View 1" deleted. Preferred: REST view API (layout + grouping + filter in one call); fallback where REST is unavailable (user-owned projects today): GraphQL create + filter update, with a one-time manual grouping hint for boards. Neither API (GHES): prints the manual click-path and exits green.
+- **Built-in `Status` options** (github.com): ensured via `updateProjectV2Field` — missing options appended additively; existing option **ids** are always re-sent (replace-all semantics: dropping an id would clear item values). Falls back to a printed note when the API is unavailable or options lack ids.
 - **GitHub database IDs exceed Int32.** Global issue DB IDs now exceed `Int32.MaxValue` (2,147,483,647); `Get-IssueDbId` casts to `[long]`, which is why `link-sub-issue.ps1` and `set-dependency.ps1` work against modern repos (fixed in this release).
 
 ## Tests

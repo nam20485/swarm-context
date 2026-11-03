@@ -365,8 +365,11 @@ and is covered by `.gitignore` (`gh-init-*.log`).
 8. **Set board fields** with `set-project-fields.ps1` for each issue: `-Level`,
    `-Priority`, `-Phase` (if used), `-Estimate`, `-Status` (default `Todo`).
 9. **Dependencies:** for each "blocked by" edge, `set-dependency.ps1 -IssueNumber <blocked> -BlockedByNumber <blocker>`.
-10. **Views:** `ensure-project.ps1` prints the four views to add once in the Project UI
-   (not automatable). Relay that to the user.
+10. **Views + Status options:** `ensure-project.ps1` already created them
+    (Status options via `updateProjectV2Field`; the four views via the Projects v2
+    REST view API, deleting the leftover default "View 1"). If the target's API
+    surface lacks these (e.g. GHES), the script prints manual instructions —
+    relay those to the user only when they appear.
 11. **Signal completion:** on a successful **apply** run (never in `-DryRun`, never after a
     partial/failed run), apply the `gh-issue-tracking:init-success` label to the **plan
     root this run attached to** — the plan-level issue created this run **or** the
@@ -420,18 +423,18 @@ Project **Status** field for in-flight state. In-issue checklists are informatio
 ## Out of scope
 
 The separate issue-implementation skill (current-issue selection / ordering) is
-deferred — see the plan's "Out of Scope". **Defects/bugs** are also deferred:
-adding a `defect` level would require extending the Project `Level` single-select
-*after* field creation, which `gh`/API cannot do (options are only settable at
-field creation); shipping it half-working would force a manual UI step on every
-re-run, so it is intentionally omitted until that can be fully automated.
+deferred — see the plan's "Out of Scope". **Defects/bugs** are also deferred as a
+product decision (templates, labels, and selection semantics all need designing).
+The old technical blocker is gone: extending the `Level` single-select after field
+creation is now automatable (`updateProjectV2Field` with `singleSelectOptions`,
+the same mechanism `ensure-project.ps1` uses for the built-in Status field).
 
 ## Known limitations
 
 Decide with these in mind up front (not only at script-reference time):
 
-- **Project views are not automatable.** `gh`/API has no supported "create view" operation; `ensure-project.ps1` prints the four views to add once in the Project UI: **By Phase, By Status, By Epic, Current work**.
-- **Built-in `Status` options are limited.** `gh` cannot add options to an existing single-select field, so the initial set is `Todo / In Progress / Done`. If your workflow needs `In Review` or `Blocked`, add those once in the UI.
+- **Project views are automated** (github.com, since the 2026 REST view API + GraphQL view mutations). `ensure-project.ps1` creates **By Phase** (table, grouped by Phase when `-Phases` is used), **By Status** (board grouped by Status), **By Epic** (board grouped by the built-in Parent-issue field), and **Current work** (table filtered to open, unblocked items), then deletes the leftover default "View 1" (create happens first — GitHub refuses to delete a project's last remaining view). Preferred path is the REST view API (one call: layout + grouping + filter); on user-owned projects the REST path 404s today, so it falls back to GraphQL `createProjectV2View` + `updateProjectV2View(filter)` — which cannot set board **grouping**, so grouped views created that way carry a one-time warning with the exact grouping to click. On targets with neither API (e.g. GHES) it prints the manual click-path and still exits green.
+- **Built-in `Status` options are automated.** `updateProjectV2Field` with `singleSelectOptions` appends the missing options (`In Review`, `Blocked`); the merge re-sends existing option **ids** (replace-all semantics — omitting an id clears item values) and is otherwise purely additive, so platform/user styling survives. If the read shows options without ids (defensive) or the mutation fails, the script prints the manual note instead.
 - **GitHub database IDs exceed Int32.** Global issue DB IDs exceed `Int32.MaxValue` (2,147,483,647); `Get-IssueDbId` casts to `[long]`, so `link-sub-issue.ps1` and `set-dependency.ps1` work against modern repos (fixed in this release).
 
 ## Validation

@@ -116,10 +116,13 @@ The hierarchy-creation skill creates the Project together with the following con
 
 ### Views
 
-- **By Phase** — grouped by the Phase field.
-- **By Status** — board view grouped by Status.
-- **By Epic** — grouped by parent epic.
-- **Current work** — filtered view of open, unblocked items in the active phase/milestone.
+All four views are created automatically by `ensure-project.ps1` (Projects v2 REST
+view API + GraphQL view mutations); the leftover default "View 1" is deleted.
+
+- **By Phase** — table view, grouped by the Phase field (when phases are used).
+- **By Status** — board view grouped by Status (columns = Status options).
+- **By Epic** — board view grouped by the built-in Parent-issue field.
+- **Current work** — table view filtered to open, unblocked items.
 
 ## Prerequisites
 
