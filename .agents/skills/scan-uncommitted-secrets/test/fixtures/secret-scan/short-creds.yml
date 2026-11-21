@@ -1,0 +1,5 @@
+# Short credential values under recognized keys must be flagged regardless of length.
+api_key: "abc123"
+secret_key: "xyz"
+auth_token: "tok1"
+client_secret: "cs9"

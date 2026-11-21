@@ -1,0 +1,6 @@
+scrape_configs:
+  - job_name: "litellm"
+    scheme: http
+    bearer_token: "sk-217"
+    static_configs:
+      - targets: ["litellm:4000"]

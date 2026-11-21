@@ -1,0 +1,14 @@
+# Postgres + DATABASE_URL secrets that slipped past format-only rules.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: litellm
+      POSTGRES_USER: llmproxy
+      POSTGRES_PASSWORD: "dbpassword9090"
+      ADMIN_TOKEN: supersecret123
+  litellm:
+    environment:
+      DATABASE_URL: "postgresql://llmproxy:dbpassword9090@db:5432/litellm"
+      DB_PASSWORD: realpassword
+      STORE_MODEL_IN_DB: "True"

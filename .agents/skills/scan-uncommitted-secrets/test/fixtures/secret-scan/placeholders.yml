@@ -1,0 +1,7 @@
+# All of these must be treated as clean: placeholders, interpolation, redaction markers.
+bearer_token: "${LITELLM_TOKEN}"
+api_key: "changeme"
+secret_key: "<YOUR_API_KEY>"
+access_token: "redacted"
+auth_token: "your-bearer-key"
+private_key: "example.com"
