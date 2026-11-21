@@ -35,6 +35,33 @@ When asked to commit the current set of changes in the working copy, always:
 - For each comment that is addressed, leave a comment explaining the resolution and mark the thread as RESOLVED state.
 - ADDRESS ALL COMMENTS BEFORE MERGING.
 
+## Merge readiness
+
+No session certifies its own pull request ready to merge. Before ANY merge call:
+
+1. **Independent verification** — dispatch TWO verifier subagents (separate
+   from any code reviewers) that each run the checklist below and report the
+   RAW command output as evidence. Merge only when both verifiers agree on
+   every field, and quote their evidence in the merge status comment.
+2. **The checklist** (exact commands, expected results):
+   - `gh pr view <n> --json state,mergeable,mergeStateStatus,baseRefName,headRefOid`
+     → `state=OPEN`, `mergeable=true`, `mergeStateStatus=CLEAN`, base = the
+     repo's default branch; record `headRefOid` (the head commit SHA).
+   - `gh api repos/<owner>/<repo>/commits/<headRefOid>/check-runs` → EVERY
+     check run for THAT EXACT SHA: `status=COMPLETED` and
+     `conclusion=SUCCESS`. `conclusion=SKIPPED` is acceptable only for a
+     check documented as inert; any FAILURE, TIMED_OUT, CANCELLED, or
+     still-running check = NOT READY. Checks on an older SHA are stale —
+     re-verify after any push.
+   - Unresolved review threads on the PR = 0 (GraphQL `reviewThreads`,
+     filter `isResolved == false`).
+3. **Merge method**: merge-commit only (`gh pr merge --merge`). Squash and
+   rebase are disabled by branch protection on orchestrated clones.
+
+Branch protection (stamped at clone creation) is the mechanical backstop: if
+GitHub refuses the merge, a gate condition is genuinely unmet — re-verify,
+fix, or park with `needs-owner`; never force or work around it.
+
 ## Resolving review comments
 
 When resolving PR review comments (automatically or manually), follow this sequence for **every** unresolved thread:
